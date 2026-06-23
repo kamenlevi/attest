@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Models, data, and caches (large / local)
+models/
+*.gguf
+*.safetensors
+data/*.pdf
+.cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
