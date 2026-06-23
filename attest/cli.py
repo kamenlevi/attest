@@ -42,7 +42,7 @@ from .grounding import build_prompt, parse_response
 from .ingest import load_text
 from .interfaces import Embedder, Generator
 from .judge import Judge
-from .retrieval import Retriever
+from .retrieval import HybridRetriever, Retriever
 
 
 def _load_dotenv(path: str = ".env") -> None:
@@ -89,10 +89,18 @@ def _make_embedder(name: str) -> Embedder:
     sys.exit(f"unknown embedder: {name}")
 
 
-def _build_retriever(doc_path: str, embedder_name: str) -> Retriever:
+def _make_retriever(embedder_name: str):
+    if embedder_name == "hybrid":
+        from .backends.local_embed import LocalEmbedder
+
+        return HybridRetriever([Retriever(MockEmbedder()), Retriever(LocalEmbedder())])
+    return Retriever(_make_embedder(embedder_name))
+
+
+def _build_retriever(doc_path: str, embedder_name: str):
     text = load_text(doc_path)
     chunks = chunk_text(text)
-    retriever = Retriever(_make_embedder(embedder_name))
+    retriever = _make_retriever(embedder_name)
     retriever.build(chunks)
     print(f"Loaded {doc_path}: {len(chunks)} chunks.", file=sys.stderr)
     return retriever
@@ -103,8 +111,8 @@ def _add_provider_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--model", default=None, help="or set ATTEST_MODEL")
     p.add_argument("--base-url", default=None, help="or set ATTEST_BASE_URL")
     p.add_argument("--api-key", default=None, help="or set ATTEST_API_KEY")
-    p.add_argument("--embedder", choices=["mock", "local"], default="mock",
-                   help="'local' = real CPU embeddings (needs '.[embed-local]')")
+    p.add_argument("--embedder", choices=["mock", "local", "hybrid"], default="mock",
+                   help="mock=keyword, local=semantic, hybrid=both fused (needs '.[embed-local]')")
     p.add_argument("--k", type=int, default=4, help="passages to retrieve")
 
 

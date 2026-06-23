@@ -48,4 +48,40 @@ numbers can be re-derived by anyone, so we record them as we go.
   decide" thesis held up on real data.
 - Investigate the equivalence-principle miss (chunking? phrasing? needs hybrid?).
 - Add genuine answer-*correctness* grading (currently we measure abstain vs
-  answer + citations, not whether an answer is factually right).
+  answer + citations, not whether an answer is factually right). [DONE — Exp 2]
+
+---
+
+## Exp 2 — Correctness grading + hybrid retrieval (2026-06)
+
+Same book/model/eval as Exp 1. Added an LLM-as-judge correctness grade and a
+hybrid (lexical + semantic, RRF-fused) retriever.
+
+**Results**
+
+| Retriever        | k  | coverage | citation | correctness        |
+|------------------|----|----------|----------|--------------------|
+| Semantic         | 10 | 80%      | 100%     | 100% (of 4 graded) |
+| Hybrid (run A)   | 10 | 60%      | 100%     | 100% (of 3 graded) |
+| Hybrid (run B)   | 10 | 80%      | 100%     | —                  |
+| Hybrid           | 20 | 60%      | 100%     | —                  |
+| Hybrid           | 30 | 60%      | 100%     | —                  |
+
+**Findings**
+1. **Correctness grading works:** every answered-and-graded question was judged
+   correct, so the answers aren't just present — they're right.
+2. **Measurement noise is real.** Identical config (hybrid, k=10) gave 60% and
+   80% on two runs: the model is not deterministic even at temperature 0
+   (provider-side routing/batching). On a 10-question eval, ±20% is noise.
+3. **Naive hybrid did NOT beat semantic here.** RRF rewards *agreement*, so a
+   chunk both retrievers rank mid-list can bury a chunk one retriever ranks #1
+   (e.g. lexical's strong "Lorentz" hit). Bigger k didn't help.
+
+**Conclusions / next leads**
+- **Do not draw retrieval conclusions from a 10-question eval.** The top priority
+  is a *larger* eval set (30-50+ questions) and averaging over multiple runs,
+  so differences exceed the noise floor. Trust metrics need enough samples to be
+  trustworthy themselves — fitting, for this project.
+- Semantic remains the safe default (best citations, no fusion pitfalls).
+- Hybrid is implemented and correct; revisit with a bigger eval and a tuned
+  fusion constant `c` / per-retriever top-k guarantees.
