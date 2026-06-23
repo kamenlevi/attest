@@ -11,19 +11,36 @@ A command-line tool where you give a small local model a set of documents (e.g. 
 textbook chapter), ask it questions, and it either **answers with a citation to the exact source
 passage** or **says "that's not in my sources"** — and we can **measure how often it cheats.**
 
-## 2. Why retrieval (RAG), not fine-tuning, for this phase
+## 2. Knowledge injection: RAG vs. fine-tuning — and why Attest measures both
 
-Two ways to make a model "know" a document:
+There are two ways to make a model "know" a document, and which is better is an evidence
+question, not a dogma. The honest summary of the research:
 
-- **Fine-tuning** bakes the text into the model's weights. Problem: it's opaque (you can't see
-  *where* an answer came from), it's easy to do badly, and it can't cite a source. Good for teaching
-  *style*, bad for *facts you must trust*.
-- **Retrieval (RAG)** keeps the documents outside the model. At question time we find the relevant
-  passages and hand them to the model as context. It's inherently **citable** (we know which passage
-  we gave it), updatable, and far more reliable for factual recall on small models.
+- **Fine-tuning changes how the model *talks*.** It bakes patterns into the weights. It's good for
+  *style, tone, domain vocabulary/notation, and reasoning patterns* — making a model *sound like a
+  physicist*. It is **bad at reliably injecting new facts**: studies find RAG generally beats
+  fine-tuning for knowledge injection (Ovadia et al., *"Fine-Tuning or Retrieval?"*), and
+  fine-tuning *new* facts can actually **increase hallucination** (Gekhman et al., *"Does
+  Fine-Tuning on New Knowledge Encourage Hallucinations?"*) — the model learns to sound right
+  without knowing right. The effect is stronger on small models. It is also **uncitable and
+  unverifiable** — you can't ask "where did that come from?"
+- **Retrieval (RAG) changes what the model *knows right now*.** Documents stay outside the model;
+  at question time we fetch the relevant passages and hand them over. It's **citable**, updatable,
+  cheap (no training), and more reliable for factual recall on small models.
 
-For a teacher who needs to *trust and learn from* answers, citability is everything. So Phase 1 is
-retrieval-grounded. (Fine-tuning returns later, in Phase 3, with its own proof mechanism.)
+> Mental model: **fine-tuning = how it talks; RAG = what it knows.** For "let me learn accurate
+> facts from my book," RAG is the more reliable *and* the only verifiable option.
+
+**The key design decision:** Attest's verification engine (§4) doesn't care *how* the knowledge got
+in. So the long-term headline feature is to run **both** RAG and fine-tuning on the user's data and
+**report the trust numbers for each**, letting evidence pick the winner per dataset — something no
+existing tool does. (It also covers the whole compute spectrum: LoRA fine-tuning is feasible on a
+unified-memory Mac; RAG is the zero-training fallback for weak machines.)
+
+**Sequencing:** Phase 1 starts with **RAG** — not because it's always better, but because it stands
+up fast and *builds the reusable eval engine* we need regardless. Fine-tuning then slots in as a
+second, directly-comparable backend (Phase 3), and the "try both, measure, decide" feature is the
+payoff.
 
 ## 3. How it works — the pipeline
 

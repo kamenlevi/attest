@@ -30,6 +30,9 @@ model lost. The differentiator vs. existing tools: the loss is *measured and rep
 
 - Fine-tune / continued-pretraining on a corpus, with an **auto-generated quiz** scored before vs.
   after to prove the model learned.
+- **The payoff feature:** because fine-tuning and RAG (Phase 1) share one verification engine, run
+  *both* on the user's data and report the trust numbers for each — let evidence pick the winner per
+  dataset. No existing tool does this. (See `docs/phase-1-design.md` §2.)
 - Format conversion (HF / GGUF → MLX) with an **identical-output check** after converting.
 
 ## Phase 4 — One Mac GUI
