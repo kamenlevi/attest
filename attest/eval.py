@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from .grounding import GroundedAnswer, build_prompt, parse_response
 from .interfaces import Generator
+from .judge import Judge
 from .retrieval import Retriever
 
 
@@ -35,6 +36,8 @@ class EvalItem:
 class EvalResult:
     item: EvalItem
     answer: GroundedAnswer
+    context: str = ""  # the retrieved passages shown to the model (for grading)
+    correct: bool | None = None  # set by grade_results(); None = not graded
 
 
 def run_eval(
@@ -46,8 +49,28 @@ def run_eval(
         retrieved = retriever.search(item.question, k=k)
         prompt = build_prompt(item.question, retrieved)
         response = generator.generate(prompt)
-        results.append(EvalResult(item=item, answer=parse_response(response)))
+        context = "\n\n".join(r.chunk.text for r in retrieved)
+        results.append(
+            EvalResult(item=item, answer=parse_response(response), context=context)
+        )
     return results
+
+
+def grade_results(results: list[EvalResult], judge: Judge) -> list[EvalResult]:
+    """Add a correctness verdict to each *answered answerable* result.
+
+    We only grade answerable questions that were actually answered: correctness
+    of a trap is already captured by the bluff rate (correct = abstain), and an
+    abstention has no answer to grade.
+    """
+    graded: list[EvalResult] = []
+    for r in results:
+        if r.item.answerable and not r.answer.abstained:
+            verdict = judge.grade(r.item.question, r.answer.text, r.context)
+            graded.append(EvalResult(r.item, r.answer, r.context, correct=verdict))
+        else:
+            graded.append(r)
+    return graded
 
 
 def compute_metrics(results: list[EvalResult]) -> dict[str, float | int]:
@@ -69,8 +92,9 @@ def compute_metrics(results: list[EvalResult]) -> dict[str, float | int]:
     bluffs = sum(1 for r in traps if not r.answer.abstained)
     covered = sum(1 for r in answerable if not r.answer.abstained)
     cited = sum(1 for r in answered if r.answer.citations)
+    graded = [r for r in results if r.correct is not None]
 
-    return {
+    metrics: dict[str, float | int] = {
         "n_total": len(results),
         "n_answerable": len(answerable),
         "n_traps": len(traps),
@@ -78,6 +102,10 @@ def compute_metrics(results: list[EvalResult]) -> dict[str, float | int]:
         "answer_coverage": (covered / len(answerable)) if answerable else 0.0,
         "citation_rate": (cited / len(answered)) if answered else 0.0,
     }
+    if graded:  # only present when answers were graded by a judge
+        metrics["n_graded"] = len(graded)
+        metrics["correctness_rate"] = sum(1 for r in graded if r.correct) / len(graded)
+    return metrics
 
 
 def format_report(metrics: dict[str, float | int]) -> str:
@@ -89,4 +117,9 @@ def format_report(metrics: dict[str, float | int]) -> str:
         f"  bluff rate:       {metrics['bluff_rate']:.0%}  (lower is better; 0% ideal)\n"
         f"  answer coverage:  {metrics['answer_coverage']:.0%}  (higher is better)\n"
         f"  citation rate:    {metrics['citation_rate']:.0%}\n"
+    ) + (
+        f"  correctness:      {metrics['correctness_rate']:.0%}  "
+        f"(of {metrics['n_graded']} graded answers)\n"
+        if "correctness_rate" in metrics
+        else ""
     )

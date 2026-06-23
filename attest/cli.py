@@ -37,10 +37,11 @@ from pathlib import Path
 from .backends.mock import MockEmbedder, MockGenerator
 from .backends.openai_compat import OpenAICompatibleGenerator
 from .chunking import chunk_text
-from .eval import EvalItem, compute_metrics, format_report, run_eval
+from .eval import EvalItem, compute_metrics, format_report, grade_results, run_eval
 from .grounding import build_prompt, parse_response
 from .ingest import load_text
 from .interfaces import Embedder, Generator
+from .judge import Judge
 from .retrieval import Retriever
 
 
@@ -136,6 +137,12 @@ def _cmd_eval(args: argparse.Namespace) -> None:
     items = [EvalItem(q["question"], bool(q["answerable"])) for q in raw]
     results = run_eval(items, retriever, generator, k=args.k)
 
+    if args.judge:
+        # Grade answered answerable questions for correctness. Reuses the same
+        # provider/model as the generator (a separate, stronger judge model is a
+        # future option).
+        results = grade_results(results, Judge(generator))
+
     if args.verbose:
         for r in results:
             label = "answerable" if r.item.answerable else "trap      "
@@ -143,6 +150,8 @@ def _cmd_eval(args: argparse.Namespace) -> None:
                 verdict = "ABSTAINED"
             else:
                 verdict = f"answered {r.answer.citations or '(no citation)'}"
+            if r.correct is not None:
+                verdict += "  [graded: CORRECT]" if r.correct else "  [graded: INCORRECT]"
             snippet = " ".join(r.answer.text.split())[:100]
             print(f"[{label}] {r.item.question}\n    -> {verdict}: {snippet}\n")
 
@@ -166,6 +175,8 @@ def main(argv: list[str] | None = None) -> None:
     ev.add_argument("--doc", required=True)
     ev.add_argument("--questions", required=True, help="JSON list of {question, answerable}")
     ev.add_argument("--verbose", action="store_true", help="show each question's answer")
+    ev.add_argument("--judge", action="store_true",
+                    help="grade answer correctness with an LLM judge (extra model calls)")
     _add_provider_args(ev)
     ev.set_defaults(func=_cmd_eval)
 
