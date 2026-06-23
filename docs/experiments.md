@@ -85,3 +85,44 @@ hybrid (lexical + semantic, RRF-fused) retriever.
 - Semantic remains the safe default (best citations, no fusion pitfalls).
 - Hybrid is implemented and correct; revisit with a bigger eval and a tuned
   fusion constant `c` / per-retriever top-k guarantees.
+
+---
+
+## Exp 3 — Real PDF ingestion (2026-06)
+
+**Setup**
+- Document: a real, math-dense quantum-mechanics / circuit-QED lecture-notes PDF
+  from arXiv (1 MB, 238 chunks after extraction).
+- Pipeline: pypdf ingestion → semantic retrieval (k=10) → grounded answer →
+  judge. Generator/judge: Llama 3.1 8B via OpenRouter.
+- Eval: 6 questions (4 conceptual answerable, 2 traps), labels grep-verified
+  against the extracted text. See `examples/qm_pdf_eval.json`.
+
+**Extraction quality (the key finding)**
+- **Prose extracts cleanly.** Table of contents, explanations, definitions are
+  all readable.
+- **Math gets mangled.** Layout-dependent notation breaks: `ẍ` → `¨x`; fractions
+  split across lines (`k/m` → `k` / `mx`); square roots detach (`√` on its own
+  line); occasional fused/split words (`xand`, `oscillatio ns`).
+- This confirms the risk flagged in `phase-1-design.md` §3.1 before any code.
+
+**Eval result**
+
+| bluff | coverage | citation | correctness        |
+|-------|----------|----------|--------------------|
+| 0%    | 100%     | 100%     | 100% (of 4 graded) |
+
+**Findings**
+1. The full pipeline works end-to-end on a real PDF: conceptual questions were
+   answered, cited, and judged correct; both traps abstained.
+2. **Conceptual Q&A survives bad math extraction** — answers about the harmonic
+   oscillator, qubits, the Hamiltonian, and cavities were all correct despite the
+   garbled equations, because the surrounding prose carries the meaning.
+3. Ingestion **fails loudly** on non-PDFs (an HTML error page raised a clear
+   PdfStreamError rather than silently returning garbage).
+
+**Conclusions / next leads**
+- For physics specifically: RAG-over-PDF is viable for *conceptual* learning now;
+  *equation-exact* questions need math-aware extraction (e.g. an OCR/LaTeX-aware
+  ingester) — a real, scoped future sub-problem, not a blocker.
+- The text path (`.txt`) remains the cleanest; offer it when source text exists.

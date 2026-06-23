@@ -1,0 +1,8 @@
+[
+  {"question": "What is a simple harmonic oscillator?", "answerable": true},
+  {"question": "What is a qubit?", "answerable": true},
+  {"question": "What role does the Hamiltonian play?", "answerable": true},
+  {"question": "What is a cavity used for in this circuit QED context?", "answerable": true},
+  {"question": "What is the Higgs boson?", "answerable": false},
+  {"question": "What is dark matter made of?", "answerable": false}
+]
