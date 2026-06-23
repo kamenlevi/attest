@@ -16,7 +16,9 @@ dependencies = [
 [project.optional-dependencies]
 # Runs anywhere (Linux/Mac) — needed to ingest real PDFs.
 ingest = ["pypdf>=4.0"]
-# Mac-only: the real model backends. Installed when you're on Apple Silicon.
+# Real CPU embeddings (Linux/Mac) — meaning-aware retrieval without a GPU.
+embed-local = ["sentence-transformers>=2.2"]
+# Mac-only: the real local model backends. Installed when you're on Apple Silicon.
 mlx = ["mlx-lm>=0.20"]
 # Development.
 dev = ["pytest>=7.0"]

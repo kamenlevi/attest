@@ -39,7 +39,7 @@ from .chunking import chunk_text
 from .eval import EvalItem, compute_metrics, format_report, run_eval
 from .grounding import build_prompt, parse_response
 from .ingest import load_text
-from .interfaces import Generator
+from .interfaces import Embedder, Generator
 from .retrieval import Retriever
 
 
@@ -47,19 +47,33 @@ def _make_generator(args: argparse.Namespace) -> Generator:
     if args.provider == "mock":
         return MockGenerator()
     if args.provider == "openai":
-        if not args.base_url:
-            sys.exit("--base-url is required for --provider openai")
+        # Each flag falls back to an env var, so you can `export` once and stop
+        # typing long commands: ATTEST_MODEL, ATTEST_BASE_URL, ATTEST_API_KEY.
+        model = args.model or os.environ.get("ATTEST_MODEL")
+        base_url = args.base_url or os.environ.get("ATTEST_BASE_URL")
         api_key = args.api_key or os.environ.get("ATTEST_API_KEY")
-        return OpenAICompatibleGenerator(
-            model=args.model, base_url=args.base_url, api_key=api_key
-        )
+        if not model:
+            sys.exit("--model (or ATTEST_MODEL) is required for --provider openai")
+        if not base_url:
+            sys.exit("--base-url (or ATTEST_BASE_URL) is required for --provider openai")
+        return OpenAICompatibleGenerator(model=model, base_url=base_url, api_key=api_key)
     sys.exit(f"unknown provider: {args.provider}")
 
 
-def _build_retriever(doc_path: str) -> Retriever:
+def _make_embedder(name: str) -> Embedder:
+    if name == "mock":
+        return MockEmbedder()
+    if name == "local":
+        from .backends.local_embed import LocalEmbedder
+
+        return LocalEmbedder()
+    sys.exit(f"unknown embedder: {name}")
+
+
+def _build_retriever(doc_path: str, embedder_name: str) -> Retriever:
     text = load_text(doc_path)
     chunks = chunk_text(text)
-    retriever = Retriever(MockEmbedder())
+    retriever = Retriever(_make_embedder(embedder_name))
     retriever.build(chunks)
     print(f"Loaded {doc_path}: {len(chunks)} chunks.", file=sys.stderr)
     return retriever
@@ -67,9 +81,11 @@ def _build_retriever(doc_path: str) -> Retriever:
 
 def _add_provider_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--provider", choices=["mock", "openai"], default="mock")
-    p.add_argument("--model", default="mock-model")
-    p.add_argument("--base-url", default=None)
+    p.add_argument("--model", default=None, help="or set ATTEST_MODEL")
+    p.add_argument("--base-url", default=None, help="or set ATTEST_BASE_URL")
     p.add_argument("--api-key", default=None, help="or set ATTEST_API_KEY")
+    p.add_argument("--embedder", choices=["mock", "local"], default="mock",
+                   help="'local' = real CPU embeddings (needs '.[embed-local]')")
     p.add_argument("--k", type=int, default=4, help="passages to retrieve")
 
 
@@ -80,7 +96,7 @@ def _cmd_demo(_args: argparse.Namespace) -> None:
 
 
 def _cmd_ask(args: argparse.Namespace) -> None:
-    retriever = _build_retriever(args.doc)
+    retriever = _build_retriever(args.doc, args.embedder)
     generator = _make_generator(args)
     retrieved = retriever.search(args.question, k=args.k)
     response = generator.generate(build_prompt(args.question, retrieved))
@@ -95,7 +111,7 @@ def _cmd_ask(args: argparse.Namespace) -> None:
 
 
 def _cmd_eval(args: argparse.Namespace) -> None:
-    retriever = _build_retriever(args.doc)
+    retriever = _build_retriever(args.doc, args.embedder)
     generator = _make_generator(args)
     with open(args.questions, encoding="utf-8") as fh:
         raw = json.load(fh)

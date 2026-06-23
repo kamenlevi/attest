@@ -9,8 +9,28 @@ needed, via a mock backend); the real MLX backend slots in on Apple Silicon.
 
 ```bash
 pip install numpy pytest        # minimal deps to run the engine + tests
-python -m pytest -q             # 9 tests, no model required
+python -m pytest -q             # tests, no model required
 python -m attest.demo           # runs the full pipeline on a mock backend, prints a trust report
+```
+
+### Use a real model (works on Linux too — cloud needs no GPU)
+
+Any OpenAI-compatible endpoint works — cloud (OpenAI, OpenRouter, …) or a local server
+(Ollama, LM Studio, MLX servers). Set it once via env vars:
+
+```bash
+export ATTEST_BASE_URL=https://api.openai.com/v1   # or http://localhost:11434/v1 for Ollama
+export ATTEST_MODEL=gpt-4o-mini                     # or e.g. llama3.2:1b on Ollama
+export ATTEST_API_KEY=sk-...                        # omit for a local server
+
+attest eval --doc examples/photosynthesis.txt --questions examples/questions.json --provider openai
+```
+
+For meaning-aware retrieval on real documents, add real CPU embeddings:
+
+```bash
+pip install -e '.[embed-local]'
+attest eval ... --provider openai --embedder local
 ```
 
 The engine is a plain Python package (`attest/`) with no GUI and no hard dependency on a model —
