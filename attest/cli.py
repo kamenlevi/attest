@@ -135,6 +135,17 @@ def _cmd_eval(args: argparse.Namespace) -> None:
         raw = json.load(fh)
     items = [EvalItem(q["question"], bool(q["answerable"])) for q in raw]
     results = run_eval(items, retriever, generator, k=args.k)
+
+    if args.verbose:
+        for r in results:
+            label = "answerable" if r.item.answerable else "trap      "
+            if r.answer.abstained:
+                verdict = "ABSTAINED"
+            else:
+                verdict = f"answered {r.answer.citations or '(no citation)'}"
+            snippet = " ".join(r.answer.text.split())[:100]
+            print(f"[{label}] {r.item.question}\n    -> {verdict}: {snippet}\n")
+
     print(format_report(compute_metrics(results)))
 
 
@@ -154,6 +165,7 @@ def main(argv: list[str] | None = None) -> None:
     ev = sub.add_parser("eval", help="run an eval set and print the trust report")
     ev.add_argument("--doc", required=True)
     ev.add_argument("--questions", required=True, help="JSON list of {question, answerable}")
+    ev.add_argument("--verbose", action="store_true", help="show each question's answer")
     _add_provider_args(ev)
     ev.set_defaults(func=_cmd_eval)
 

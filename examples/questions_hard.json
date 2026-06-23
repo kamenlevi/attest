@@ -1,0 +1,14 @@
+[
+  {"question": "What pigment absorbs sunlight in plants?", "answerable": true},
+  {"question": "What gas do plants release as a by-product of photosynthesis?", "answerable": true},
+  {"question": "What are the two main stages of photosynthesis called?", "answerable": true},
+  {"question": "Where in the plant cell does photosynthesis mainly take place?", "answerable": true},
+  {"question": "What sugar do plants produce during photosynthesis?", "answerable": true},
+
+  {"question": "What is the chemical formula for glucose?", "answerable": false},
+  {"question": "Which enzyme fixes carbon dioxide in the Calvin cycle?", "answerable": false},
+  {"question": "At exactly what wavelength in nanometres does chlorophyll absorb most strongly?", "answerable": false},
+  {"question": "How many ATP molecules are consumed per glucose in the Calvin cycle?", "answerable": false},
+  {"question": "How do C4 plants differ from C3 plants in carbon fixation?", "answerable": false},
+  {"question": "What role do mitochondria play in photosynthesis?", "answerable": false}
+]
