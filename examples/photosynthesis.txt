@@ -1,0 +1,14 @@
+Photosynthesis is the process by which green plants convert light energy into
+chemical energy. It takes place mainly in the leaves, inside organelles called
+chloroplasts. The green pigment chlorophyll absorbs sunlight, primarily red and
+blue wavelengths, and reflects green light, which is why leaves look green.
+
+During photosynthesis, plants take in carbon dioxide from the air through small
+pores called stomata, and absorb water from the soil through their roots. Using
+light energy, they combine carbon dioxide and water to produce glucose, a sugar
+that stores energy, and release oxygen as a by-product.
+
+The process has two main stages. The light-dependent reactions capture energy
+from sunlight and store it temporarily in molecules. The light-independent
+reactions, also called the Calvin cycle, use that stored energy to build glucose
+from carbon dioxide.

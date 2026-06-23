@@ -1,0 +1,9 @@
+[
+  {"question": "What pigment absorbs sunlight in plants?", "answerable": true},
+  {"question": "Through what pores do plants take in carbon dioxide?", "answerable": true},
+  {"question": "What is the Calvin cycle used for?", "answerable": true},
+  {"question": "Why do leaves look green?", "answerable": true},
+  {"question": "What is the boiling point of helium?", "answerable": false},
+  {"question": "Who composed the Moonlight Sonata?", "answerable": false},
+  {"question": "How does a transistor amplify current?", "answerable": false}
+]

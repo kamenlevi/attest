@@ -21,6 +21,9 @@ mlx = ["mlx-lm>=0.20"]
 # Development.
 dev = ["pytest>=7.0"]
 
+[project.scripts]
+attest = "attest.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["attest*"]
 
