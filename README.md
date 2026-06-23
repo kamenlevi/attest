@@ -2,7 +2,19 @@
 
 **A local-model workbench for Apple Silicon where every operation comes with a trust signal you can verify.**
 
-Status: 🟡 Designing Phase 1 in public. No code yet — this repo currently holds the design.
+Status: 🟢 Phase 1 in progress. The headless engine + trust-measurement runs today (no GPU
+needed, via a mock backend); the real MLX backend slots in on Apple Silicon.
+
+## Quickstart (developers)
+
+```bash
+pip install numpy pytest        # minimal deps to run the engine + tests
+python -m pytest -q             # 9 tests, no model required
+python -m attest.demo           # runs the full pipeline on a mock backend, prints a trust report
+```
+
+The engine is a plain Python package (`attest/`) with no GUI and no hard dependency on a model —
+that's deliberate (see [Architecture](#architecture)).
 
 ---
 
@@ -33,6 +45,17 @@ The common thread is a single **verification engine**, built first in Phase 1 an
 ## Why build in the open
 
 The closest existing tool to this vision is closed-source with benchmark claims nobody can reproduce. That's the exact failure mode we're avoiding. Everything here — code, evals, and the numbers they produce — is public and reproducible. If we say "the bluff rate is 2%," you can run it and get 2%.
+
+## Architecture
+
+The **engine** and the **UI** are separate, on purpose:
+
+- **Engine** (`attest/`) — a plain Python package + CLI holding all the real logic (ingest,
+  retrieve, ground, measure). It talks to models only through two interfaces (`Embedder`,
+  `Generator`), so a **mock backend** lets the whole thing run and be tested with no GPU. On Apple
+  Silicon, the real **MLX backend** drops in behind the same interfaces — nothing else changes.
+- **App** (Phase 4) — a thin Mac desktop shell over the engine, shipped as a **Homebrew cask** +
+  a `.dmg` on GitHub Releases (LM-Studio-style). Because the engine is clean, the UI is just a client.
 
 ## Scope
 
