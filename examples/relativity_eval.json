@@ -1,0 +1,13 @@
+[
+  {"question": "What does Einstein mean by the relativity of simultaneity?", "answerable": true},
+  {"question": "What is the Lorentz transformation used for?", "answerable": true},
+  {"question": "What is the principle of equivalence?", "answerable": true},
+  {"question": "How does the theory account for the motion of the perihelion of Mercury?", "answerable": true},
+  {"question": "What role does the speed of light play in the special theory of relativity?", "answerable": true},
+
+  {"question": "What is quantum entanglement?", "answerable": false},
+  {"question": "What is the exact value of the speed of light in metres per second?", "answerable": false},
+  {"question": "What is the Higgs boson?", "answerable": false},
+  {"question": "What is dark matter made of?", "answerable": false},
+  {"question": "How does Heisenberg's uncertainty principle work?", "answerable": false}
+]

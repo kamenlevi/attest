@@ -22,3 +22,6 @@ data/*.pdf
 .DS_Store
 .idea/
 .vscode/
+
+# Downloaded test data (books, etc.) — not committed
+data/
