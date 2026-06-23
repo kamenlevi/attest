@@ -32,6 +32,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 
 from .backends.mock import MockEmbedder, MockGenerator
 from .backends.openai_compat import OpenAICompatibleGenerator
@@ -41,6 +42,23 @@ from .grounding import build_prompt, parse_response
 from .ingest import load_text
 from .interfaces import Embedder, Generator
 from .retrieval import Retriever
+
+
+def _load_dotenv(path: str = ".env") -> None:
+    """Load KEY=VALUE lines from a local .env into the environment (no deps).
+
+    Existing environment variables win, so an explicit `export` always overrides
+    the file. Silently does nothing if there's no .env.
+    """
+    p = Path(path)
+    if not p.exists():
+        return
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def _make_generator(args: argparse.Namespace) -> Generator:
@@ -121,6 +139,7 @@ def _cmd_eval(args: argparse.Namespace) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    _load_dotenv()  # pick up .env (your key) before anything else
     parser = argparse.ArgumentParser(prog="attest", description="Local-model trust workbench.")
     sub = parser.add_subparsers(dest="command", required=True)
 

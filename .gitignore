@@ -13,6 +13,11 @@ models/
 data/*.pdf
 .cache/
 
+# Secrets — NEVER commit. Your real key lives in .env (ignored); .env.example is the safe template.
+.env
+*.env
+!.env.example
+
 # OS / editor
 .DS_Store
 .idea/
