@@ -13,6 +13,7 @@ no GPU. Uses only the Python standard library (no extra dependencies).
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 import urllib.request
 
@@ -36,7 +37,9 @@ class OpenAICompatibleGenerator(Generator):
         base_url: str,
         api_key: str | None = None,
         temperature: float = 0.0,
-        timeout: float = 120.0,
+        timeout: float = 180.0,
+        retries: int = 3,
+        backoff: float = 2.0,
         post_fn=_default_post,
     ) -> None:
         # base_url should be the API root, e.g. "https://api.openai.com/v1"
@@ -46,6 +49,8 @@ class OpenAICompatibleGenerator(Generator):
         self.api_key = api_key
         self.temperature = temperature
         self.timeout = timeout
+        self.retries = retries
+        self.backoff = backoff
         # Dependency injection: tests pass a fake post_fn so this is testable
         # with no network and no API key.
         self._post = post_fn
@@ -60,5 +65,15 @@ class OpenAICompatibleGenerator(Generator):
             "messages": [{"role": "user", "content": prompt}],
             "temperature": self.temperature,
         }
-        response = self._post(url, payload, headers, self.timeout)
-        return response["choices"][0]["message"]["content"]
+        # Retry transient failures (timeouts, 5xx) with linear backoff so one slow
+        # response doesn't abort a long batch run.
+        last_err: Exception | None = None
+        for attempt in range(self.retries):
+            try:
+                response = self._post(url, payload, headers, self.timeout)
+                return response["choices"][0]["message"]["content"]
+            except Exception as err:  # noqa: BLE001 - retry any transient error
+                last_err = err
+                if attempt < self.retries - 1:
+                    time.sleep(self.backoff * (attempt + 1))
+        raise last_err  # exhausted retries

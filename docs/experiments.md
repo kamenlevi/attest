@@ -126,3 +126,29 @@ hybrid (lexical + semantic, RRF-fused) retriever.
   *equation-exact* questions need math-aware extraction (e.g. an OCR/LaTeX-aware
   ingester) — a real, scoped future sub-problem, not a blocker.
 - The text path (`.txt`) remains the cleanest; offer it when source text exists.
+
+---
+
+## Exp 4 — Hierarchical (chapter-routed) retrieval — REJECTED (branch only, 2026-06)
+
+Branch `hierarchical-retrieval`. Tested whether routing to top sections (ranked by
+a centroid vector) before chunk search helps. qb.pdf split into 78 fixed-blocks
+(after fixing a heading-detection bug that had produced 944 bogus sections).
+
+**Result (Problems 7-12, flat vs hierarchical, top_sections=8, k=8):**
+
+| | P7 | P8 | P9 | P10 | P11 | P12 |
+|---|----|----|----|-----|-----|-----|
+| Flat         | ✅ | ⛔ | ⛔ | ✅ | ⛔ | ✅ |
+| Hierarchical | ✅ | ⛔ | ⛔ | ✅ | ⛔ | ⛔ |
+
+**Decision: DO NOT MERGE.** Hierarchical lost P12 (flat answered it; the relevant
+chunk's section centroid didn't rank in the top 8) and gained nothing.
+
+**Why:** centroid routing trades recall for speed, but at ~1k chunks flat search is
+already instant (persistent index fixed speed), so the speed benefit is zero while
+the recall cost is real. Hierarchical only pays off at millions-of-chunks scale
+(ANN territory). The real bottleneck is recall (P8/P9/P11 abstain under both) —
+addressed by reranking / hybrid / k-tuning on the flat index, not by routing.
+
+Branch kept (the section splitter is reusable once we reach ANN scale); not merged.
