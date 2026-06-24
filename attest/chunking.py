@@ -19,12 +19,14 @@ from dataclasses import dataclass
 class Chunk:
     """One passage of the source document.
 
-    `index` is its position (0, 1, 2, ...). We use it as the citation number,
-    so when the model says "[3]" we know exactly which passage it meant.
+    `index` is its position / citation id, so when the model says "[3]" we know
+    exactly which passage it meant. `source` records which file it came from
+    (used once a single index spans many documents).
     """
 
     index: int
     text: str
+    source: str = ""
 
 
 def chunk_text(text: str, chunk_size: int = 200, overlap: int = 40) -> list[Chunk]:

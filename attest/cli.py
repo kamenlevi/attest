@@ -43,6 +43,7 @@ from .ingest import load_text
 from .interfaces import Embedder, Generator
 from .judge import Judge
 from .retrieval import HybridRetriever, Retriever
+from .store import IndexedStore
 
 
 def _load_dotenv(path: str = ".env") -> None:
@@ -106,6 +107,18 @@ def _build_retriever(doc_path: str, embedder_name: str):
     return retriever
 
 
+def _get_retriever(args: argparse.Namespace):
+    """Use a prebuilt on-disk index if --index is given, else embed --doc now."""
+    if getattr(args, "index", None):
+        store = IndexedStore.load(args.index, _make_embedder(args.embedder))
+        print(f"Loaded index {args.index}: {len(store)} chunks (no re-embedding).",
+              file=sys.stderr)
+        return store
+    if not getattr(args, "doc", None):
+        sys.exit("provide either --doc <file> or --index <dir>")
+    return _build_retriever(args.doc, args.embedder)
+
+
 def _add_provider_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--provider", choices=["mock", "openai"], default="mock")
     p.add_argument("--model", default=None, help="or set ATTEST_MODEL")
@@ -122,8 +135,19 @@ def _cmd_demo(_args: argparse.Namespace) -> None:
     demo_main()
 
 
+def _cmd_index(args: argparse.Namespace) -> None:
+    docs = []
+    for path in args.docs:
+        chunks = chunk_text(load_text(path))
+        docs.append((path, chunks))
+        print(f"  {path}: {len(chunks)} chunks", file=sys.stderr)
+    store = IndexedStore.build(docs, _make_embedder(args.embedder))
+    store.save(args.out)
+    print(f"Indexed {len(store)} chunks from {len(docs)} file(s) -> {args.out}")
+
+
 def _cmd_ask(args: argparse.Namespace) -> None:
-    retriever = _build_retriever(args.doc, args.embedder)
+    retriever = _get_retriever(args)
     generator = _make_generator(args)
     retrieved = retriever.search(args.question, k=args.k)
     response = generator.generate(build_prompt(args.question, retrieved))
@@ -131,6 +155,11 @@ def _cmd_ask(args: argparse.Namespace) -> None:
     print(response)
     if answer.abstained:
         print("\n[abstained — not in sources]")
+        if args.allow_uncited:
+            # User opted in to seeing the model's own (un-sourced) knowledge.
+            uncited = generator.generate(args.question)
+            print("\n[UNCITED — from the model's own knowledge, NOT your sources]")
+            print(uncited)
     elif answer.citations:
         print(f"\n[cited passages: {answer.citations}]")
     else:
@@ -138,7 +167,7 @@ def _cmd_ask(args: argparse.Namespace) -> None:
 
 
 def _cmd_eval(args: argparse.Namespace) -> None:
-    retriever = _build_retriever(args.doc, args.embedder)
+    retriever = _get_retriever(args)
     generator = _make_generator(args)
     with open(args.questions, encoding="utf-8") as fh:
         raw = json.load(fh)
@@ -173,14 +202,24 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("demo", help="run the no-model demo").set_defaults(func=_cmd_demo)
 
-    ask = sub.add_parser("ask", help="ask one grounded question about a document")
-    ask.add_argument("--doc", required=True)
+    ix = sub.add_parser("index", help="embed file(s) once and save a reusable index")
+    ix.add_argument("docs", nargs="+", help="one or more .txt/.pdf files to index")
+    ix.add_argument("--out", required=True, help="directory to write the index to")
+    ix.add_argument("--embedder", choices=["mock", "local"], default="local")
+    ix.set_defaults(func=_cmd_index)
+
+    ask = sub.add_parser("ask", help="ask one grounded question about a document/index")
+    ask.add_argument("--doc", help="a file to embed now (or use --index)")
+    ask.add_argument("--index", help="a prebuilt index directory (from `attest index`)")
     ask.add_argument("--question", required=True)
+    ask.add_argument("--allow-uncited", action="store_true",
+                     help="if abstained, also show the model's own un-sourced answer")
     _add_provider_args(ask)
     ask.set_defaults(func=_cmd_ask)
 
     ev = sub.add_parser("eval", help="run an eval set and print the trust report")
-    ev.add_argument("--doc", required=True)
+    ev.add_argument("--doc", help="a file to embed now (or use --index)")
+    ev.add_argument("--index", help="a prebuilt index directory (from `attest index`)")
     ev.add_argument("--questions", required=True, help="JSON list of {question, answerable}")
     ev.add_argument("--verbose", action="store_true", help="show each question's answer")
     ev.add_argument("--judge", action="store_true",
