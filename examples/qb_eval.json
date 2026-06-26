@@ -1,0 +1,8 @@
+[
+  {"question": "Using the variational principle with a normalized trial wavefunction, what is the inequality between the expectation value of the Hamiltonian <psi|H|psi> and the true ground-state energy E0?", "answerable": true},
+  {"question": "For a particle in a time-independent potential, what is the expectation value of the momentum operator <p> in a bound, non-degenerate stationary energy eigenstate?", "answerable": true},
+  {"question": "Evaluate the one-dimensional commutator [x, T] where x is position and T = p^2/2m is the kinetic energy operator.", "answerable": true},
+  {"question": "In the Heisenberg picture, what differential equation governs the time evolution of an operator A_H(t) with no explicit time dependence in the Schrodinger picture?", "answerable": true},
+  {"question": "For two hermitian operators A and B, what is the generalized uncertainty relation bound for the product of their root-mean-square deviations (Delta A)(Delta B)?", "answerable": true},
+  {"question": "A free particle has the plane-wave wavefunction psi = A exp(i k.r). What is the probability current density vector j?", "answerable": true}
+]

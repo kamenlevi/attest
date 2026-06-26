@@ -42,6 +42,7 @@ from .grounding import build_prompt, parse_response
 from .ingest import load_text
 from .interfaces import Embedder, Generator
 from .judge import Judge
+from .query import ExpandingRetriever, QueryExpander
 from .retrieval import HybridRetriever, Retriever
 from .store import IndexedStore
 
@@ -127,6 +128,11 @@ def _add_provider_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--embedder", choices=["mock", "local", "hybrid"], default="mock",
                    help="mock=keyword, local=semantic, hybrid=both fused (needs '.[embed-local]')")
     p.add_argument("--k", type=int, default=4, help="passages to retrieve")
+    p.add_argument("--expand", action="store_true",
+                   help="expand the question (HyDE + key terms) before searching — "
+                        "one extra model call per query, better recall")
+    p.add_argument("--pool", type=int, default=30,
+                   help="candidates per expansion text before fusing (with --expand)")
 
 
 def _cmd_demo(_args: argparse.Namespace) -> None:
@@ -146,9 +152,16 @@ def _cmd_index(args: argparse.Namespace) -> None:
     print(f"Indexed {len(store)} chunks from {len(docs)} file(s) -> {args.out}")
 
 
+def _maybe_expand(retriever, generator, args: argparse.Namespace):
+    """Wrap the retriever with query expansion if the user passed --expand."""
+    if getattr(args, "expand", False):
+        return ExpandingRetriever(retriever, QueryExpander(generator), pool=args.pool)
+    return retriever
+
+
 def _cmd_ask(args: argparse.Namespace) -> None:
-    retriever = _get_retriever(args)
     generator = _make_generator(args)
+    retriever = _maybe_expand(_get_retriever(args), generator, args)
     retrieved = retriever.search(args.question, k=args.k)
     response = generator.generate(build_prompt(args.question, retrieved))
     answer = parse_response(response)
@@ -167,8 +180,8 @@ def _cmd_ask(args: argparse.Namespace) -> None:
 
 
 def _cmd_eval(args: argparse.Namespace) -> None:
-    retriever = _get_retriever(args)
     generator = _make_generator(args)
+    retriever = _maybe_expand(_get_retriever(args), generator, args)
     with open(args.questions, encoding="utf-8") as fh:
         raw = json.load(fh)
     items = [EvalItem(q["question"], bool(q["answerable"])) for q in raw]
