@@ -462,3 +462,42 @@ semantic + lexical), a `--lexical` flag, and a tokenizer that keeps dotted label
   extractor before grounding can quote them exactly.
 - B8's single-run abstention is noise; a slightly larger k/pool or a bigger eval would
   smooth it.
+
+---
+
+## Exp 12 — Vision-based math extraction: the garbled-equation problem, solved (2026-06)
+
+Branch `clean-ingestion`. The last failure (B5, Exp 11) was a collapsed equation that no
+string-cleaning could fix. So we stopped using the PDF text layer for math: render each
+page to an image and have a VISION model transcribe it to Markdown+LaTeX. Added
+`attest/backends/vision_extract.py` (VisionExtractor, needs pymupdf) and `attest convert
+--vision [--pages 40-46] [--vision-model …]`.
+
+**Before → after (the exact equations that were failing):**
+
+| | pypdf text layer | vision (gpt-4o-mini) |
+|---|---|---|
+| annihilation op (3.2a) | `A ≡ mωx + ip√ 2mℏω` | `A \equiv \frac{mx+ip}{\sqrt{2m\hbar\omega}}` |
+| probability current (2.87) | `J = iℏ 2m (...) = ℏ mS2∇φ` | `\mathbf{J} = \frac{\hbar}{m} S^2 \nabla\phi` |
+
+**End-to-end (the decisive test):** feeding the clean vision-extracted page as context,
+the 8B generator now answers B5 correctly — `J = (ℏ/m) S^2 ∇φ [2.87]`, cited — the exact
+gold answer. On the garbled text layer it got this wrong (Exp 10/11).
+
+**Findings**
+1. **Vision extraction recovers equation structure the text layer destroys.** Fractions,
+   roots, daggers, commutators, eigenvalue equations all come back as correct LaTeX. The
+   one true failure mode in retrieval+grounding (collapsed math) is fixed at the source.
+2. **It fits "any model, local or cloud" exactly.** Any vision-capable OpenAI-compatible
+   endpoint works (cloud gpt-4o-mini today; a local MLX vision model on the Mac later) with
+   no code change. The trust story is preserved — it transcribes, it does not "solve".
+3. **Not literally 100%.** Occasional minor glyph slip (one `mωx` lost its ω). Structurally
+   correct and a different universe from glyph extraction; a second verification pass could
+   close the last gap. It's a convert-ONCE step (one call/page), so cost is paid at import.
+
+**Conclusions / next leads**
+- The full ingestion path now has two tiers: fast deterministic `clean_text` for prose,
+  and `--vision` math-aware transcription for equation-dense sources. Together they remove
+  the source-quality ceiling that made grounding underperform the base model (Exp 8).
+- Remaining: run a full-book vision convert on the Mac (cost/time), and a verification pass
+  for the rare glyph slip; then re-measure the whole eval on a fully clean source.

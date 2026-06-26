@@ -160,13 +160,45 @@ def _cmd_demo(_args: argparse.Namespace) -> None:
     demo_main()
 
 
+def _parse_pages(spec: str | None) -> list[int] | None:
+    """'40-46' or '45,40' (1-based, inclusive) -> 0-based page indices; None = all."""
+    if not spec:
+        return None
+    pages: list[int] = []
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            a, b = part.split("-")
+            pages.extend(range(int(a) - 1, int(b)))
+        elif part:
+            pages.append(int(part) - 1)
+    return pages
+
+
 def _cmd_convert(args: argparse.Namespace) -> None:
-    """Extract a document to clean .txt the model can read without trouble."""
-    cleaned = load_text(args.doc, clean=not args.raw)
-    out = Path(args.out) if args.out else Path(args.doc).with_suffix(".txt")
+    """Extract a document to clean text the model can read without trouble."""
+    if args.vision:
+        # Math-aware: render pages and transcribe with a vision model -> clean LaTeX.
+        from .backends.vision_extract import VisionExtractor
+
+        model = args.vision_model or os.environ.get("ATTEST_VISION_MODEL", "openai/gpt-4o-mini")
+        base_url = args.base_url or os.environ.get("ATTEST_BASE_URL")
+        api_key = args.api_key or os.environ.get("ATTEST_API_KEY")
+        if not base_url:
+            sys.exit("--vision needs --base-url (or ATTEST_BASE_URL)")
+        pages = _parse_pages(args.pages)
+        print(f"Vision extraction with {model} "
+              f"({'all pages' if pages is None else f'{len(pages)} page(s)'})...",
+              file=sys.stderr)
+        cleaned = VisionExtractor(model, base_url, api_key).extract(args.doc, pages=pages)
+        default_suffix = ".md"
+    else:
+        cleaned = load_text(args.doc, clean=not args.raw)
+        default_suffix = ".txt"
+    out = Path(args.out) if args.out else Path(args.doc).with_suffix(default_suffix)
     out.write_text(cleaned, encoding="utf-8")
-    print(f"Wrote {len(cleaned):,} chars -> {out}"
-          f"{'' if args.raw else ' (cleaned)'}")
+    tag = " (vision/LaTeX)" if args.vision else ("" if args.raw else " (cleaned)")
+    print(f"Wrote {len(cleaned):,} chars -> {out}{tag}")
 
 
 def _cmd_index(args: argparse.Namespace) -> None:
@@ -281,8 +313,17 @@ def main(argv: list[str] | None = None) -> None:
 
     cv = sub.add_parser("convert", help="extract a PDF/doc to clean .txt the model reads cleanly")
     cv.add_argument("doc", help="a .pdf/.txt file to convert")
-    cv.add_argument("--out", default=None, help="output path (default: alongside, .txt)")
+    cv.add_argument("--out", default=None, help="output path (default: alongside, .txt/.md)")
     cv.add_argument("--raw", action="store_true", help="skip cleaning; emit the raw extraction")
+    cv.add_argument("--vision", action="store_true",
+                    help="math-aware: render pages and transcribe to clean Markdown+LaTeX "
+                         "with a vision model (one call per page; needs pymupdf)")
+    cv.add_argument("--vision-model", default=None,
+                    help="vision model for --vision (default ATTEST_VISION_MODEL or openai/gpt-4o-mini)")
+    cv.add_argument("--pages", default=None,
+                    help="page range for --vision, e.g. '41' or '40-46' or '40,46' (1-based)")
+    cv.add_argument("--base-url", default=None, help="or set ATTEST_BASE_URL")
+    cv.add_argument("--api-key", default=None, help="or set ATTEST_API_KEY")
     cv.set_defaults(func=_cmd_convert)
 
     ix = sub.add_parser("index", help="embed file(s) once and save a reusable index")
