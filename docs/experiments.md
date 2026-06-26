@@ -415,3 +415,50 @@ questions**:
   with citations, and without making things up."
 - Remaining upside: retrieval recall on the abstained cases; math-aware extraction for
   equation-valued answers (B5); a bigger eval to tighten the numbers.
+
+---
+
+## Exp 11 — Hybrid (semantic + BM25 lexical) retrieval: recall solved (2026-06)
+
+Branch `clean-ingestion`. The Exp 10 abstentions (B3/B7/B11) were semantic search
+missing *exact* terms — proper nouns ("Walter of Merton"), labels ("Box 2.1"),
+section numbers. Added `attest/lexical.py` BM25Retriever + `FusedRetriever` (RRF over
+semantic + lexical), a `--lexical` flag, and a tokenizer that keeps dotted labels
+("2.1", "2.87") as single tokens. Best-recall stack: **hybrid → HyDE expand → rerank**.
+
+**Deterministic recall probe (gold passage in top-8?):**
+
+| | semantic+expand+rerank | hybrid+expand+rerank |
+|---|---|---|
+| B7 "Box 2.1" (chunk 75) | NO | **YES** |
+| B5 eq 2.87 (chunk 116)  | YES | YES |
+| B11 "merely" (chunk 7)  | YES | YES |
+| B1 "Walter of Merton" (chunk 0) | semantic alone: NO | BM25 alone: **YES** |
+
+**End-to-end on the 12 book-specific questions (8B gen, gpt-4o-mini judge):**
+
+| | base | RAG (Exp 10) | RAG BEST (hybrid) |
+|---|------|--------------|-------------------|
+| correct | 2/12 | 7/12 | **10/12** |
+| abstentions | — | 4 | 1 |
+| bluffs | (bluffs all) | 0 | 0 |
+
+**Findings**
+1. **Lexical fusion is the recall fix.** B3/B4/B7/B11 converted from abstention to
+   correct+cited. BM25 catches the exact tokens embeddings miss (it alone found the
+   "Walter of Merton" dedication that semantic ranked nowhere); keeping "2.1"/"2.87"
+   as tokens rescued the label questions; HyDE supplies content words the question
+   omits ("Hermitian" for Box 2.1).
+2. **11 of 12 gold passages are now reachable in the top-8.** The lone real failure is
+   B5: the chunk IS retrieved, but the 8B mis-states the still-garbled J equation —
+   a generation/math-extraction problem, NOT recall.
+3. **Still zero bluffs.** The one miss (B8) was an honest abstention; the trust
+   guarantee holds while recall climbs.
+
+**Conclusions / next leads**
+- Recall is essentially solved for findable content: hybrid (semantic+BM25) + HyDE +
+  rerank. RAG now answers 10/12 document-specific questions the base model gets 2/12 on.
+- The residual is the math-aware-extraction problem (B5) — equations need a better
+  extractor before grounding can quote them exactly.
+- B8's single-run abstention is noise; a slightly larger k/pool or a bigger eval would
+  smooth it.

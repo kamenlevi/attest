@@ -193,6 +193,10 @@ class IndexedStore:
         """The files currently in the index."""
         return list(self._manifest)
 
+    def chunks(self) -> list[Chunk]:
+        """The stored chunks (uid as index) — e.g. to build a lexical index over them."""
+        return [Chunk(index=s.uid, text=s.text, source=s.source) for s in self._stored]
+
     def __len__(self) -> int:
         return len(self._stored)
 

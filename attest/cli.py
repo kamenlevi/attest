@@ -144,6 +144,9 @@ def _add_provider_args(p: argparse.ArgumentParser) -> None:
                         "one extra model call per query, better recall")
     p.add_argument("--pool", type=int, default=30,
                    help="candidates per expansion text before fusing (with --expand)")
+    p.add_argument("--lexical", action="store_true",
+                   help="fuse in BM25 keyword retrieval (catches exact terms/proper "
+                        "nouns/labels that semantic search misses) — better recall")
     p.add_argument("--rerank", action="store_true",
                    help="re-score retrieved candidates with a cross-encoder and keep "
                         "the best (precision pass; needs '.[embed-local]')")
@@ -200,8 +203,18 @@ def _cmd_index(args: argparse.Namespace) -> None:
 
 
 def _wrap_retriever(retriever, generator, args: argparse.Namespace):
-    """Apply the optional retrieval stages in order: expand (recall) -> rerank
-    (precision). Each is opt-in, so plain search still works unchanged."""
+    """Apply the optional retrieval stages in order: lexical fusion (recall) ->
+    expand (recall) -> rerank (precision). Each is opt-in, so plain search still
+    works unchanged."""
+    if getattr(args, "lexical", False):
+        from .lexical import BM25Retriever
+        from .retrieval import FusedRetriever
+
+        if hasattr(retriever, "chunks"):
+            bm25 = BM25Retriever(retriever.chunks())
+            retriever = FusedRetriever([retriever, bm25], pool=args.pool)
+        else:
+            print("--lexical needs an index/doc with chunks(); skipping", file=sys.stderr)
     if getattr(args, "expand", False):
         retriever = ExpandingRetriever(retriever, QueryExpander(generator), pool=args.pool)
     if getattr(args, "rerank", False):

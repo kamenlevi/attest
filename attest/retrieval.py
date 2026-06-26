@@ -38,6 +38,10 @@ class Retriever:
             return
         self._matrix = self._embedder.embed([c.text for c in chunks])
 
+    def chunks(self) -> list[Chunk]:
+        """The chunks this retriever was built over (e.g. to build a lexical index)."""
+        return list(self._chunks)
+
     def search(self, query: str, k: int = 4) -> list[Retrieved]:
         """Return the top-`k` chunks most similar to `query`, best first."""
         if self._matrix is None:
@@ -63,6 +67,31 @@ def reciprocal_rank_fusion(
         for rank, key in enumerate(ranked, start=1):
             scores[key] = scores.get(key, 0.0) + 1.0 / (c + rank)
     return sorted(scores, key=lambda key: scores[key], reverse=True)
+
+
+class FusedRetriever:
+    """Fuse several retrievers (e.g. semantic + BM25 lexical) into one via RRF.
+
+    Each sub-retriever returns its own ranked list for the query; RRF merges them
+    so a chunk ranked highly by EITHER bubbles up. This is what makes recall
+    robust: the embedding finds paraphrases, the keyword index finds exact terms
+    (proper nouns, labels, numbers) the embedding misses. Duck-typed like Retriever.
+    """
+
+    def __init__(self, retrievers, pool: int = 40) -> None:
+        self._retrievers = retrievers
+        self._pool = pool  # candidates pulled from each retriever before fusing
+
+    def search(self, query: str, k: int = 4) -> list[Retrieved]:
+        ranked_lists: list[list[int]] = []
+        by_index: dict[int, Retrieved] = {}
+        for r in self._retrievers:
+            hits = r.search(query, k=self._pool)
+            ranked_lists.append([h.chunk.index for h in hits])
+            for h in hits:
+                by_index.setdefault(h.chunk.index, h)
+        fused = reciprocal_rank_fusion(ranked_lists)[:k]
+        return [by_index[i] for i in fused]
 
 
 class RerankingRetriever:
