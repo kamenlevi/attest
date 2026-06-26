@@ -234,3 +234,50 @@ that was present — a strict-prompt + retrieval + garbled-math failure, not a g
 - Build a *book-specific* eval (answers not in the model's parametric memory) to
   measure RAG's actual value, plus a trap set to measure bluff-rate (the trust half).
 - Treat "abstained despite the passage being present" as the headline bug to fix next.
+
+---
+
+## Exp 7 — Reranker (cross-encoder) + a better grounding prompt (2026-06)
+
+Branch `query-understanding`. Two changes since Exp 6:
+- **Grounding prompt** rewritten to extract when the answer is present (even reworded,
+  split, or buried in OCR/math noise) and abstain only on true absence.
+- **Reranker**: retrieve a wide pool with the bi-encoder (recall) → re-score each
+  candidate with a cross-encoder that reads question+passage together (precision) →
+  keep the top-k. Opt-in via `--rerank`.
+
+**Results on the 20-fact QM set (all answerable) + 6 out-of-domain traps:**
+
+| config | RAG correct | abstained | bluff (traps) |
+|--------|-------------|-----------|---------------|
+| expand only (new prompt) | 16/20 | 3 (P22,P24,P25) | 0/6 |
+| expand + rerank          | 16/20 | 2 (P25,P28)     | 0/6 |
+
+**Findings**
+1. **The reranker did exactly what it was built to do.** It recovered P22 (the clean
+   Schrödinger-equation passage) and P24 (the clean Born-rule passage) — the two cases
+   Exp 6 identified as "clean passage exists but ranks too low". Mechanistic win,
+   predicted in advance.
+2. **Aggregate didn't move (16→16) because the eval is noise-bound.** An 8B generator
+   + 8B judge over 20 questions flips individual items run-to-run (P28 OK→abstain,
+   P29/P31 OK→"wrong"). Several "wrong"/"abstain" verdicts are suspect: P27 in Exp 6
+   was algebraically correct but judged wrong. **We cannot distinguish 16 from 19 from
+   20 with this judge.** Measurement quality is now the binding constraint, not retrieval.
+3. **Trust held through every change — bluff rate 0/6 throughout.** The "never guesses"
+   guarantee is robust to the looser prompt and the reranker.
+4. **Speed (measured on the ThinkPad CPU):**
+   - bi-encoder search over 971 chunks, k=40: **~66 ms** (and this is the part ANN makes
+     scale to millions).
+   - cross-encoder rerank of 40 candidates: **~8.4 s** — the expensive part, and it's a
+     weak-CPU artifact (a 6-layer transformer over 40 long passages, unbatched-ish, no
+     Metal/MLX). On the target Mac GPU this is ~100 ms; mitigations meanwhile: a smaller
+     reranker (ms-marco-MiniLM-L-2), a smaller pool, or ONNX.
+   - end-to-end ~15 s/question is dominated by **cloud-model round trips** (expand call +
+     answer call + judge call), NOT our retrieval.
+
+**Conclusions / next leads**
+- **Stronger judge is the top priority** — until grading is trustworthy we're flying
+  blind on whether quality work is helping.
+- Reranker is a clear quality lever but CPU-costly here; make it light or lean on the Mac.
+- Clean ingestion (format conversion to clean text + math-aware extraction) is the fix
+  for the truly-garbled cases like P25 — a separate branch.

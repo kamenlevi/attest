@@ -43,7 +43,7 @@ from .ingest import load_text
 from .interfaces import Embedder, Generator
 from .judge import Judge
 from .query import ExpandingRetriever, QueryExpander
-from .retrieval import HybridRetriever, Retriever
+from .retrieval import HybridRetriever, RerankingRetriever, Retriever
 from .store import IndexedStore, file_fingerprint
 
 
@@ -133,6 +133,11 @@ def _add_provider_args(p: argparse.ArgumentParser) -> None:
                         "one extra model call per query, better recall")
     p.add_argument("--pool", type=int, default=30,
                    help="candidates per expansion text before fusing (with --expand)")
+    p.add_argument("--rerank", action="store_true",
+                   help="re-score retrieved candidates with a cross-encoder and keep "
+                        "the best (precision pass; needs '.[embed-local]')")
+    p.add_argument("--rerank-pool", type=int, default=40,
+                   help="candidates to re-score before keeping top-k (with --rerank)")
 
 
 def _cmd_demo(_args: argparse.Namespace) -> None:
@@ -174,16 +179,21 @@ def _cmd_index(args: argparse.Namespace) -> None:
           f"Now {len(store)} chunks from {len(store.sources())} file(s).")
 
 
-def _maybe_expand(retriever, generator, args: argparse.Namespace):
-    """Wrap the retriever with query expansion if the user passed --expand."""
+def _wrap_retriever(retriever, generator, args: argparse.Namespace):
+    """Apply the optional retrieval stages in order: expand (recall) -> rerank
+    (precision). Each is opt-in, so plain search still works unchanged."""
     if getattr(args, "expand", False):
-        return ExpandingRetriever(retriever, QueryExpander(generator), pool=args.pool)
+        retriever = ExpandingRetriever(retriever, QueryExpander(generator), pool=args.pool)
+    if getattr(args, "rerank", False):
+        from .backends.rerank import CrossEncoderReranker
+
+        retriever = RerankingRetriever(retriever, CrossEncoderReranker(), pool=args.rerank_pool)
     return retriever
 
 
 def _cmd_ask(args: argparse.Namespace) -> None:
     generator = _make_generator(args)
-    retriever = _maybe_expand(_get_retriever(args), generator, args)
+    retriever = _wrap_retriever(_get_retriever(args), generator, args)
     retrieved = retriever.search(args.question, k=args.k)
     response = generator.generate(build_prompt(args.question, retrieved))
     answer = parse_response(response)
@@ -203,7 +213,7 @@ def _cmd_ask(args: argparse.Namespace) -> None:
 
 def _cmd_eval(args: argparse.Namespace) -> None:
     generator = _make_generator(args)
-    retriever = _maybe_expand(_get_retriever(args), generator, args)
+    retriever = _wrap_retriever(_get_retriever(args), generator, args)
     with open(args.questions, encoding="utf-8") as fh:
         raw = json.load(fh)
     items = [EvalItem(q["question"], bool(q["answerable"])) for q in raw]

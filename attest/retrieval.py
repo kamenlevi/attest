@@ -65,6 +65,34 @@ def reciprocal_rank_fusion(
     return sorted(scores, key=lambda key: scores[key], reverse=True)
 
 
+class RerankingRetriever:
+    """Wraps any base retriever, adding a precision pass.
+
+    On search(): pull a wide `pool` of candidates from the base retriever (recall),
+    re-score every candidate against the question with a reranker that reads
+    question+passage together, and return the top-`k` by that score (precision).
+    Duck-typed like Retriever (has search()), so it composes — e.g. wrap an
+    ExpandingRetriever to get expand-for-recall then rerank-for-precision.
+
+    The reranker is any object with `score(query, passages) -> list[float]`.
+    """
+
+    def __init__(self, base, reranker, pool: int = 40) -> None:
+        self._base = base
+        self._reranker = reranker
+        self._pool = pool  # candidates to re-score before keeping the top-k
+
+    def search(self, query: str, k: int = 4) -> list[Retrieved]:
+        candidates = self._base.search(query, k=self._pool)
+        if not candidates:
+            return []
+        # Score against the ORIGINAL question (not an expansion): we want passages
+        # that answer what the user actually asked.
+        scores = self._reranker.score(query, [c.chunk.text for c in candidates])
+        order = sorted(zip(candidates, scores), key=lambda cs: cs[1], reverse=True)
+        return [Retrieved(chunk=c.chunk, score=float(s)) for c, s in order[:k]]
+
+
 class HybridRetriever:
     """Combines several retrievers (e.g. lexical + semantic) via RRF.
 
