@@ -189,3 +189,48 @@ gold chunk lands (0 = top hit; <8 = fed to the model):
   larger eval set are the levers there.
 - A reranker (retrieve wide → re-score → keep top few) remains the natural precision
   step, especially once the corpus is large enough that gold no longer fits in a small k.
+
+---
+
+## Exp 6 — Base model vs RAG on generic textbook facts — RAG LOSES (and that's the lesson) (2026-06)
+
+Branch `query-understanding`. 20 standard QM questions (P13–P32: `[x,p]=iℏ`, `S²=¾ℏ²`,
+infinite-well energies, the TDSE, the Born rule, …), each graded against a gold answer
+by an LLM judge. We compared the **base model alone** (no sources) against **RAG +
+`--expand`** (k=8). Index: the Binney–Skinner QM PDF. See `examples/qb_eval2.json`.
+
+**Result**
+
+| | correct |
+|---|---|
+| Base model alone | **20 / 20** |
+| RAG + `--expand` | **14 / 20** (abstained on P17, P22, P24, P25, P26, P28) |
+
+**The content was not missing.** All six abstained topics are demonstrably in the
+book (e.g. "square well" 13 chunks, "harmonic oscillator" 58, "stationary state" 63,
+"probability density" 16, "spin" 160). RAG abstained ("NOT IN SOURCES") on content
+that was present — a strict-prompt + retrieval + garbled-math failure, not a gap.
+
+**Findings**
+1. **For facts the model already knows, RAG can only tie or lose.** These are famous,
+   generic results any competent model has from training (base: 20/20). RAG adds
+   nothing on the wins and, via strict grounding, *subtracts* on the misses: when the
+   exact passage doesn't surface cleanly in the top-k, abstention turns a known-correct
+   answer into a non-answer. Net: −6.
+2. **We were measuring RAG on the one question class where it cannot help.** This is a
+   measurement-design lesson, and exactly the kind of thing Attest exists to catch with
+   numbers rather than vibes. It's consistent with the RAG-vs-parametric literature:
+   RAG is for knowledge the model *lacks*, not knowledge it has.
+3. **Where RAG should win (untested here):** questions whose answers are *specific to
+   this book* and not generic knowledge — a worked example the text uses, this book's
+   notation, the content of a particular Box or equation. There the base model should
+   bluff or fail and grounded RAG should win + cite. That is the physics-teacher case
+   ("the model doesn't know what's in *this* textbook") and the right next eval.
+4. **The 6 abstentions-on-present-content are a real, separable bug.** Levers: a less
+   trigger-happy abstention setting (answer from sources if present, else say so), a
+   reranker to tighten top-k precision, and math-aware extraction (cf. Exp 3).
+
+**Conclusions / next leads**
+- Build a *book-specific* eval (answers not in the model's parametric memory) to
+  measure RAG's actual value, plus a trap set to measure bluff-rate (the trust half).
+- Treat "abstained despite the passage being present" as the headline bug to fix next.
