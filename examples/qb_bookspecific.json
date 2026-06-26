@@ -1,0 +1,14 @@
+[
+ {"id":"B1","q":"According to this book's dedication, who 'launched something good' in 1264?","gold":"Walter of Merton"},
+ {"id":"B2","q":"Who are the two authors of this book, and which press first published it (and in what year)?","gold":"James Binney and David Skinner; published by Cappella Archive in 2008"},
+ {"id":"B3","q":"What is the exact title the book gives to its section 4.5?","gold":"What is the essence of quantum mechanics?"},
+ {"id":"B4","q":"The book describes a famous 1957 experiment by Wu et al. in a vivid way. What does it say the experiment showed, and which commutator does this make nonzero?","gold":"That you can see things in a mirror that cannot happen in the real world (parity violation); there are Hamiltonians for which [H,P] is nonzero"},
+ {"id":"B5","q":"In this book's equation (2.87), what does the probability current J equal in terms of S, the gradient of the phase, m and hbar?","gold":"J = (hbar/m) S^2 grad(phi)"},
+ {"id":"B6","q":"In the book's equation (2.88), what does it conclude the gradient of the phase of the wavefunction encodes, and what is the velocity v equal to?","gold":"It encodes the velocity at which the probability fluid flows; v = (hbar/m) grad(phi)"},
+ {"id":"B7","q":"What is the subject of this book's Box 2.1, and what two properties does it prove?","gold":"Hermitian operators; that they have real eigenvalues and mutually orthogonal eigenvectors"},
+ {"id":"B8","q":"In Chapter 5 the book applies a pair of square wells to explain a specific real device. Which device?","gold":"The ammonia maser"},
+ {"id":"B9","q":"What does the book call the first non-commutative algebra?","gold":"Quaternions"},
+ {"id":"B10","q":"In section 3.3 on motion in a magnetic field, what quantized energy levels does the book introduce?","gold":"Landau levels"},
+ {"id":"B11","q":"How does this book characterize what stationary states 'merely' are?","gold":"Merely the tool we use to solve the time-dependent Schrodinger equation"},
+ {"id":"B12","q":"The book derives the virial theorem to relate which two quantities for a particle in a stationary state?","gold":"The kinetic and potential energies"}
+]
