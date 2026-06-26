@@ -281,3 +281,44 @@ Branch `query-understanding`. Two changes since Exp 6:
 - Reranker is a clear quality lever but CPU-costly here; make it light or lean on the Mac.
 - Clean ingestion (format conversion to clean text + math-aware extraction) is the fix
   for the truly-garbled cases like P25 — a separate branch.
+
+---
+
+## Exp 8 — A stronger judge: the measurement tool was lying (2026-06)
+
+Branch `query-understanding`. We suspected the 8B judge (same model as the generator)
+was misgrading, so we graded the SAME RAG answers with two judges: Llama-3.1-8B (old)
+and gpt-4o-mini (new), against the gold answers. Added `--judge-model` to the CLI so
+grading can use a separate, stronger model.
+
+**Result (expand+rerank answers, 8B generator):**
+
+| judge | "correct" |
+|-------|-----------|
+| Llama-3.1-8B | 16/20 |
+| gpt-4o-mini  | **12/20** |
+
+The strong judge graded *lower*, not higher — the 8B judge was too **lenient**, not too
+harsh. Reading the four disagreements settled who's right:
+- **P21**: answer `iLz` dropped the ℏ (gold `iℏLz`) — wrong; 8B judge missed it. ✓ strong
+- **P32**: answer `j=3/2, 1/2` (a specific case) when the general `j=l±½` was asked — wrong. ✓ strong
+- **P27**: answer copied the garbled PDF math `mωx + ip√ 2mℏω` — ambiguous/wrong as written. ✓ strong
+- **P16**: answer `iℏ` (terse but essentially correct) — here gpt-4o-mini was slightly harsh.
+
+**Findings**
+1. **We were over-counting.** Honest correctness with the 8B generator is ~12–13/20, not
+   16. A small model is an unreliable judge of itself; trustworthy metrics need a
+   stronger grader. (This is the project's whole thesis, turned on our own tooling.)
+2. **The failures are generation + source, not retrieval.** The right passages arrive;
+   the 8B generator then drops terms / over-specializes, or copies garbled equations.
+3. **The decisive point: base 8B alone scored 20/20 (Exp 6); RAG over the garbled PDF
+   scores ~13.** The mangled source is *dirtier than the model's own memory*, so grounding
+   currently COSTS accuracy. RAG can only beat base when the source text is at least as
+   clean as parametric memory — which it is not, for a math-dense PDF.
+
+**Conclusions / next leads**
+- Use a strong judge (`--judge-model openai/gpt-4o-mini`) for all future measurement.
+- **Clean ingestion is now the critical path**, not a nicety: convert sources to clean
+  text (and math-aware extraction) so grounding stops corrupting answers. Until the
+  source is clean, no retrieval/grounding work can make RAG beat the base model on facts
+  the model already knows.

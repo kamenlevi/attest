@@ -81,6 +81,17 @@ def _make_generator(args: argparse.Namespace) -> Generator:
     sys.exit(f"unknown provider: {args.provider}")
 
 
+def _make_judge_generator(args: argparse.Namespace, fallback: Generator) -> Generator:
+    """A separate (usually stronger) model for grading. A small generator is a poor
+    grader — it misjudges algebraically-equivalent answers — so let the judge be a
+    bigger model than the one being tested. Falls back to the generator itself."""
+    if not getattr(args, "judge_model", None):
+        return fallback
+    base_url = args.base_url or os.environ.get("ATTEST_BASE_URL")
+    api_key = args.api_key or os.environ.get("ATTEST_API_KEY")
+    return OpenAICompatibleGenerator(model=args.judge_model, base_url=base_url, api_key=api_key)
+
+
 def _make_embedder(name: str) -> Embedder:
     if name == "mock":
         return MockEmbedder()
@@ -220,10 +231,9 @@ def _cmd_eval(args: argparse.Namespace) -> None:
     results = run_eval(items, retriever, generator, k=args.k)
 
     if args.judge:
-        # Grade answered answerable questions for correctness. Reuses the same
-        # provider/model as the generator (a separate, stronger judge model is a
-        # future option).
-        results = grade_results(results, Judge(generator))
+        # Grade answered answerable questions for correctness. By default reuses the
+        # generator; --judge-model points grading at a separate, stronger model.
+        results = grade_results(results, Judge(_make_judge_generator(args, generator)))
 
     if args.verbose:
         for r in results:
@@ -269,6 +279,9 @@ def main(argv: list[str] | None = None) -> None:
     ev.add_argument("--verbose", action="store_true", help="show each question's answer")
     ev.add_argument("--judge", action="store_true",
                     help="grade answer correctness with an LLM judge (extra model calls)")
+    ev.add_argument("--judge-model", default=None,
+                    help="use a separate (stronger) model for grading, e.g. "
+                         "openai/gpt-4o-mini — a small model is an unreliable judge")
     _add_provider_args(ev)
     ev.set_defaults(func=_cmd_eval)
 
