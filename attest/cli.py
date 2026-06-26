@@ -157,6 +157,15 @@ def _cmd_demo(_args: argparse.Namespace) -> None:
     demo_main()
 
 
+def _cmd_convert(args: argparse.Namespace) -> None:
+    """Extract a document to clean .txt the model can read without trouble."""
+    cleaned = load_text(args.doc, clean=not args.raw)
+    out = Path(args.out) if args.out else Path(args.doc).with_suffix(".txt")
+    out.write_text(cleaned, encoding="utf-8")
+    print(f"Wrote {len(cleaned):,} chars -> {out}"
+          f"{'' if args.raw else ' (cleaned)'}")
+
+
 def _cmd_index(args: argparse.Namespace) -> None:
     embedder = _make_embedder(args.embedder)  # lazy: no model load until we embed
     out = Path(args.out)
@@ -256,6 +265,12 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("demo", help="run the no-model demo").set_defaults(func=_cmd_demo)
+
+    cv = sub.add_parser("convert", help="extract a PDF/doc to clean .txt the model reads cleanly")
+    cv.add_argument("doc", help="a .pdf/.txt file to convert")
+    cv.add_argument("--out", default=None, help="output path (default: alongside, .txt)")
+    cv.add_argument("--raw", action="store_true", help="skip cleaning; emit the raw extraction")
+    cv.set_defaults(func=_cmd_convert)
 
     ix = sub.add_parser("index", help="embed file(s) once and save a reusable index")
     ix.add_argument("docs", nargs="+", help="one or more .txt/.pdf files to index")

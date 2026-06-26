@@ -9,10 +9,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .normalize import clean_text
 
-def load_text(path: str | Path) -> str:
-    """Return the plain text of a .txt or .pdf file."""
-    path = Path(path)
+
+def load_text(path: str | Path, clean: bool = True) -> str:
+    """Return the plain text of a .txt or .pdf file.
+
+    By default the text is run through `clean_text` to remove PDF extraction noise
+    (ligatures, mangled ℏ, hyphenation) — measured to matter for grounding quality.
+    Pass clean=False to get the raw extraction (e.g. to compare before/after).
+    """
+    raw = _extract(Path(path))
+    return clean_text(raw) if clean else raw
+
+
+def _extract(path: Path) -> str:
     suffix = path.suffix.lower()
 
     if suffix == ".txt":

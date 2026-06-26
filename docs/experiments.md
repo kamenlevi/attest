@@ -322,3 +322,44 @@ harsh. Reading the four disagreements settled who's right:
   text (and math-aware extraction) so grounding stops corrupting answers. Until the
   source is clean, no retrieval/grounding work can make RAG beat the base model on facts
   the model already knows.
+
+---
+
+## Exp 9 — Clean ingestion (text normalization): necessary, not sufficient (2026-06)
+
+Branch `clean-ingestion`. Added `clean_text` (ligatures ﬁﬂﬀ→fi/fl/ff, `¯h`→`ℏ`,
+split accents, line-break hyphenation) applied at ingest, and an `attest convert`
+command (PDF → clean .txt). Rebuilt the index from cleaned extraction and re-ran
+expand+rerank with the 8B generator and the gpt-4o-mini judge.
+
+**Result (vs the dirty index from Exp 8):**
+
+| | dirty | clean |
+|---|-------|-------|
+| correct (gpt-4o-mini judge) | 12/20 | 13/20 |
+| abstentions | 3 | **1** |
+| P22 Schrödinger eq | abstained | **answered, correct** |
+
+The aggregate (+1) is within run-to-run noise, but the qualitative change is real:
+cleaning removed the high-volume noise (~1100 `¯h`, ~2500 ligatures), so prose and
+simple-formula answers returned and abstentions dropped 3→1.
+
+**Findings**
+1. **Cleaning fixes the high-volume noise but not structure.** P27's annihilation
+   operator is still `mωx + ip√ 2mℏω` — `ℏ` is fixed but the `/√(…)` fraction is still
+   collapsed. Inline-math layout needs a better extractor / math-OCR, not string fixes.
+2. **The residual gap is now a MIX, not one bug:** (a) collapsed fractions (P27) →
+   math-aware extraction; (b) the 8B generator's own slips (P14 garbled, P25 answered
+   the oscillator not the well, P29 mislabeled m as l) → a small-model ceiling; (c)
+   judge strictness on terse-but-correct answers (P16 `iℏ`).
+3. **Strategic truth:** 20 generic, memorized facts is a test where the *base* model
+   has the home advantage (flawless memory) and RAG fights uphill (imperfect source +
+   extraction + a small generator). Clean ingestion narrows the gap; closing it fully
+   needs math-aware extraction AND bumps into the small-model ceiling. RAG's real edge
+   is *book-specific* questions the base model cannot answer — still the eval to build.
+
+**Conclusions / next leads**
+- Keep `clean_text` (safe, strictly removes noise) — merge-worthy on its own.
+- Math-aware extraction (try PyMuPDF; consider Nougat on the Mac) is the next ingestion
+  step for collapsed equations like P27.
+- Build the book-specific eval to measure where RAG actually beats base.
