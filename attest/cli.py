@@ -44,7 +44,7 @@ from .interfaces import Embedder, Generator
 from .judge import Judge
 from .query import ExpandingRetriever, QueryExpander
 from .retrieval import HybridRetriever, Retriever
-from .store import IndexedStore
+from .store import IndexedStore, file_fingerprint
 
 
 def _load_dotenv(path: str = ".env") -> None:
@@ -142,14 +142,36 @@ def _cmd_demo(_args: argparse.Namespace) -> None:
 
 
 def _cmd_index(args: argparse.Namespace) -> None:
-    docs = []
+    embedder = _make_embedder(args.embedder)  # lazy: no model load until we embed
+    out = Path(args.out)
+    # Add to an existing index if one is already there, so a file that's already
+    # been indexed is skipped (instant) and only new/changed files are embedded.
+    if (out / "vectors.npy").exists():
+        store = IndexedStore.load(out, embedder)
+        print(f"Opened existing index: {len(store)} chunks, {len(store.sources())} file(s).",
+              file=sys.stderr)
+    else:
+        store = IndexedStore.build([], embedder)
+    # Decide skips from a cheap file fingerprint BEFORE extracting/chunking — so
+    # re-indexing an unchanged 600-page PDF is instant, not a re-extraction.
+    docs, fingerprints, skipped = [], {}, 0
     for path in args.docs:
+        fp = file_fingerprint(path)
+        if store.fingerprint_of(path) == fp:
+            print(f"  {path}: unchanged — skipped", file=sys.stderr)
+            skipped += 1
+            continue
         chunks = chunk_text(load_text(path))
         docs.append((path, chunks))
+        fingerprints[path] = fp
         print(f"  {path}: {len(chunks)} chunks", file=sys.stderr)
-    store = IndexedStore.build(docs, _make_embedder(args.embedder))
-    store.save(args.out)
-    print(f"Indexed {len(store)} chunks from {len(docs)} file(s) -> {args.out}")
+    stats = (store.add(docs, embedder, fingerprints=fingerprints) if docs
+             else {"added": 0, "updated": 0, "skipped": 0})
+    stats["skipped"] += skipped
+    store.save(out)
+    print(f"Index {out}: +{stats['added']} new, {stats['updated']} updated, "
+          f"{stats['skipped']} unchanged (skipped). "
+          f"Now {len(store)} chunks from {len(store.sources())} file(s).")
 
 
 def _maybe_expand(retriever, generator, args: argparse.Namespace):

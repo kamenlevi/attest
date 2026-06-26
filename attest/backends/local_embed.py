@@ -21,19 +21,29 @@ DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 class LocalEmbedder(Embedder):
     def __init__(self, model_name: str = DEFAULT_MODEL) -> None:
-        try:
-            from sentence_transformers import SentenceTransformer
-        except ImportError as exc:  # pragma: no cover - depends on optional extra
-            raise ImportError(
-                "LocalEmbedder needs sentence-transformers. "
-                "Install with: pip install -e '.[embed-local]'"
-            ) from exc
-        # First use downloads the model once, then it's cached locally.
-        self._model = SentenceTransformer(model_name)
+        # Lazy: don't load the model (torch + ~80 MB weights, several seconds) at
+        # construction. Only the first embed() call pays it. This keeps actions
+        # that hold an embedder but never embed — e.g. opening an index just to
+        # skip already-indexed files — instant.
+        self._model_name = model_name
+        self._model = None
+
+    def _ensure_model(self):
+        if self._model is None:
+            try:
+                from sentence_transformers import SentenceTransformer
+            except ImportError as exc:  # pragma: no cover - depends on optional extra
+                raise ImportError(
+                    "LocalEmbedder needs sentence-transformers. "
+                    "Install with: pip install -e '.[embed-local]'"
+                ) from exc
+            # First use downloads the model once, then it's cached locally.
+            self._model = SentenceTransformer(self._model_name)
+        return self._model
 
     def embed(self, texts: list[str]) -> np.ndarray:
         # normalize_embeddings=True -> unit-length vectors, so dot product == cosine.
-        vecs = self._model.encode(
+        vecs = self._ensure_model().encode(
             texts, normalize_embeddings=True, convert_to_numpy=True
         )
         return vecs.astype(np.float32)
