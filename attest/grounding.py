@@ -16,9 +16,23 @@ from .retrieval import Retrieved
 ABSTAIN = "NOT IN SOURCES"
 
 _INSTRUCTIONS = (
-    "You are a careful assistant. Answer the question using ONLY the passages "
-    "below. Cite the passage number(s) you use, like [1]. If the answer is not "
-    f"contained in the passages, reply with exactly: {ABSTAIN}\n"
+    "You answer questions using ONLY the passages below, which are quoted from the "
+    "user's documents. They come from real books, so expect formatting noise: "
+    "garbled math symbols, split or fused words, equation numbers. Read through the "
+    "noise for the meaning.\n"
+    "\n"
+    "Follow these rules exactly:\n"
+    "1. If the passages contain the answer, ANSWER it — even when it is worded "
+    "differently from the question, spread across several passages, or must be "
+    "assembled or lightly inferred from what they state. Then cite the passage "
+    "number(s) you used, like [3].\n"
+    f"2. Only if the passages genuinely do not contain the answer, reply with "
+    f"exactly: {ABSTAIN}\n"
+    "3. Never use outside knowledge to fill a gap. If a claim is not supported by "
+    "the passages, it must not appear in your answer. Do not guess.\n"
+    "\n"
+    "The passages really do contain the answer to most questions, so look carefully "
+    "before deciding it is absent.\n"
 )
 
 
