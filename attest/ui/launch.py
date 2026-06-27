@@ -48,10 +48,12 @@ def run(host: str = "127.0.0.1", port: int | None = None, open_window: bool = Tr
             webview.create_window("Attest", url, width=1140, height=780, min_size=(940, 640))
             webview.start()
             return
-        except Exception:  # noqa: BLE001 - no GUI / pywebview missing -> browser
-            import webbrowser
-            webbrowser.open(url)
+        except Exception as exc:  # noqa: BLE001 - no GUI backend -> open the browser
+            print(f"(native window unavailable: {exc}; opening your browser instead)")
 
+    # Browser mode (explicit --no-window, or pywebview fell through): open it for them.
+    import webbrowser
+    webbrowser.open(url)
     print(f"Attest is running at {url}  (Ctrl-C to stop)")
     try:
         thread.join()
