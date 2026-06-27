@@ -100,10 +100,12 @@ class AppState:
 
     def index_file(self, path: str, vision: bool = False) -> dict:
         """Index a document into the active index (creating one if needed)."""
-        src = Path(path)
+        src = Path(path).expanduser()
         if not src.exists():
             return {"error": f"File not found: {path}"}
-        index_path = self.config.get("index_path") or str(Path("data") / "library.idx")
+        path = str(src.resolve())  # absolute, so it resolves from any working dir
+        default_index = Path.home() / ".attest" / "library.idx"
+        index_path = self.config.get("index_path") or str(default_index)
         embedder = self.embedder()
         if (Path(index_path) / "vectors.npy").exists():
             store = IndexedStore.load(index_path, embedder)
