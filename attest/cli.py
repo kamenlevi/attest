@@ -175,6 +175,12 @@ def _parse_pages(spec: str | None) -> list[int] | None:
     return pages
 
 
+def _cmd_ui(args: argparse.Namespace) -> None:
+    from .ui.launch import run
+
+    run(port=args.port, open_window=not args.no_window)
+
+
 def _cmd_convert(args: argparse.Namespace) -> None:
     """Extract a document to clean text the model can read without trouble."""
     if args.vision:
@@ -310,6 +316,12 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("demo", help="run the no-model demo").set_defaults(func=_cmd_demo)
+
+    ui = sub.add_parser("ui", help="launch the desktop app (native window)")
+    ui.add_argument("--port", type=int, default=None)
+    ui.add_argument("--no-window", action="store_true",
+                    help="serve only and open in your browser (no native window)")
+    ui.set_defaults(func=_cmd_ui)
 
     cv = sub.add_parser("convert", help="extract a PDF/doc to clean .txt the model reads cleanly")
     cv.add_argument("doc", help="a .pdf/.txt file to convert")

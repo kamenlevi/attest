@@ -18,6 +18,10 @@ dependencies = [
 ingest = ["pypdf>=4.0"]
 # Real CPU embeddings (Linux/Mac) — meaning-aware retrieval without a GPU.
 embed-local = ["sentence-transformers>=2.2"]
+# Math-aware (vision) ingestion: render PDF pages to transcribe equations -> LaTeX.
+vision = ["pymupdf>=1.24"]
+# The desktop app: local server + native window (Linux/macOS).
+ui = ["fastapi>=0.110", "uvicorn>=0.27", "python-multipart>=0.0.9", "pywebview>=5.0"]
 # Mac-only: the real local model backends. Installed when you're on Apple Silicon.
 mlx = ["mlx-lm>=0.20"]
 # Development.
