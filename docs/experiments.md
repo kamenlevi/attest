@@ -501,3 +501,44 @@ gold answer. On the garbled text layer it got this wrong (Exp 10/11).
   the source-quality ceiling that made grounding underperform the base model (Exp 8).
 - Remaining: run a full-book vision convert on the Mac (cost/time), and a verification pass
   for the rare glyph slip; then re-measure the whole eval on a fully clean source.
+
+---
+
+## Exp 13 — 30 advanced questions, two books: where each ceiling actually is (2026-06)
+
+Two books: book 1 = Binney & Skinner (intro), book 2 = Rosch *Advanced QM* (154 pp,
+second quantization). 30 graduate questions (P33–47 book 1, P48–62 book 2), base 8B vs
+RAG (full pipeline), gpt-4o-mini judge. See `examples/qb_advanced_b{1,2}.json`.
+
+**Headline:** base 10/30, RAG 5/30 — RAG *lower*, but for three distinct, verified reasons,
+none of which is "RAG is worse":
+
+1. **Book 1: the questions mostly aren't in the book.** Verified in-corpus: "Levinson" 0
+   chunks, "exchange operator" 0, "Wigner-Eckart" 1. These are graduate topics absent from an
+   *introductory* text. RAG correctly ABSTAINED (6/15); base bluffed from training and got 4
+   lucky hits — confidently, unverifiably. (The user's "strictly constrained to the textbook"
+   premise was false for book 1.)
+2. **Book 2: vision extraction works but didn't move the score.** Vision-converted all 154
+   pages → clean LaTeX (verified: field operators, Slater determinants, scalar products all
+   correct). Re-test: RAG 3/15 (was 4/15 on garbled text) — within noise.
+3. **The bottleneck moved off the source.** Diagnostic — same clean retrieved context fed to
+   8B vs gpt-4o-mini: P55 the strong model is right where the 8B is wrong (**generator
+   ceiling**); P54/P58 even the strong model abstains (**coverage gap** — content not in the
+   retrieved text). So book 2's residual = book coverage + small-model capability, NOT source
+   quality.
+
+**Findings**
+- Vision extraction is the right fix for *garbled-but-reproducible* equations (proven on
+  eq 2.87, Exp 12). It can't help when the content isn't in the book, or when the generator
+  can't reproduce graduate-level algebra from clean text.
+- **The base model's 10/30 is the cautionary number:** confident, unverifiable, and fabricated
+  on every out-of-book question. RAG's 5/30 is fully cited and it refused rather than guess.
+  This is the project's value proposition, shown on adversarial advanced questions.
+- **"Any model" is the lever for hard content:** point a stronger generator at graduate
+  material (P55) — the architecture already supports it; the 8B is the floor (the
+  physics-teacher's small local model), not the only option.
+
+**Conclusions / next leads**
+- Add an in-corpus check to evals so a correct abstention isn't scored as a miss.
+- For advanced material, expose/recommend a stronger generator via the model picker.
+- Merge the proven branches to master.

@@ -1,0 +1,17 @@
+[
+ {"id":"P48","q":"Write the canonical commutation relations for bosonic field operators Psi(r) and Psi-dagger(r') in real space.","gold":"[Psi(r), Psi^dag(r')] = delta(r-r'); [Psi(r),Psi(r')] = [Psi^dag(r),Psi^dag(r')] = 0"},
+ {"id":"P49","q":"Give the single-particle kinetic energy operator T in momentum-space second-quantized notation.","gold":"T = sum_k (hbar^2 k^2 / 2m) c^dag_k c_k"},
+ {"id":"P50","q":"For fermionic creation operators, what is (c^dagger_lambda)^2 for any single-particle state lambda?","gold":"0"},
+ {"id":"P51","q":"Express the real-space fermionic field operator Psi(r) in a box of volume V as a sum over momentum annihilation operators c_k.","gold":"Psi(r) = (1/sqrt(V)) sum_k exp(i k.r) c_k"},
+ {"id":"P52","q":"What is the anticommutator {c_lambda, c^dagger_mu} for two orthogonal fermionic states lambda != mu?","gold":"0"},
+ {"id":"P53","q":"Write the second-quantized two-particle interaction V(r1,r2) using field operators.","gold":"V = (1/2) integral Psi^dag(r) Psi^dag(r') V(r,r') Psi(r') Psi(r) d3r d3r'"},
+ {"id":"P54","q":"What is the commutator of the total number operator N with the field creation operator Psi-dagger(r)?","gold":"[N, Psi^dag(r)] = Psi^dag(r)"},
+ {"id":"P55","q":"For a bosonic Fock state |N> = (1/sqrt(N!)) (c^dag)^N |0>, evaluate c_lambda |N>.","gold":"c_lambda |N> = sqrt(N) |N-1>"},
+ {"id":"P56","q":"Under a unitary basis change |beta_bar> = sum_alpha U_{alpha beta} |alpha>, how do creation operators transform?","gold":"d^dag_beta = sum_alpha U_{alpha beta} c^dag_alpha"},
+ {"id":"P57","q":"What is the ground-state energy density of a non-interacting 3D Fermi gas with Fermi momentum k_F?","gold":"E_g / V = (1/(5 pi^2)) (hbar^2 k_F^5 / (2m))"},
+ {"id":"P58","q":"What is the commutator [n(r), Psi-dagger(r')] where n(r) is the local density operator?","gold":"[n(r), Psi^dag(r')] = delta(r-r') Psi^dag(r)"},
+ {"id":"P59","q":"If the Hamiltonian commutes with total momentum P = sum_k hbar k c^dag_k c_k, what property do its eigenstates have?","gold":"They can be chosen as simultaneous eigenstates of total momentum, eigenvalue P_tot = sum hbar k_i"},
+ {"id":"P60","q":"Write the action of the fermionic hole creation operator h^dag_k on the filled Fermi sea |FS> for k < k_F.","gold":"h^dag_k |FS> = c_k |FS>"},
+ {"id":"P61","q":"What does Wick's Theorem give for the vacuum expectation value of an odd number of creation/annihilation operators?","gold":"Identically zero"},
+ {"id":"P62","q":"Write the Jordan-Wigner transformation mapping a spin-1/2 raising operator S_i^+ on a 1D chain to spinless fermions.","gold":"S_i^+ = c^dag_i exp(i pi sum_{j<i} c^dag_j c_j)"}
+]

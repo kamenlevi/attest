@@ -1,0 +1,17 @@
+[
+ {"id":"P33","q":"What is the constraint on the phase shift delta_l(E) at zero energy for a potential holding N_l bound states of angular momentum l, per Levinson's Theorem?","gold":"delta_l(0) - delta_l(infinity) = N_l * pi"},
+ {"id":"P34","q":"Write the expectation value <p^2> in the ground state of Hydrogen using the Bohr radius a0.","gold":"<p^2> = hbar^2 / a0^2"},
+ {"id":"P35","q":"For a spin-1 particle, give the matrix representations of S_x, S_y, S_z in the basis diagonalizing S_z.","gold":"S_z = hbar*diag(1,0,-1); S_x = (hbar/sqrt2)*[[0,1,0],[1,0,1],[0,1,0]]; S_y = (hbar/sqrt2)*[[0,-i,0],[i,0,-i],[0,i,0]]"},
+ {"id":"P36","q":"What is the condition for a density matrix rho to describe a pure state rather than a mixed state?","gold":"Tr(rho^2) = 1, equivalently rho^2 = rho"},
+ {"id":"P37","q":"Evaluate the commutator [ln(x), p] in position space.","gold":"[ln x, p] = i*hbar / x"},
+ {"id":"P38","q":"What is the transmission coefficient T for a particle of energy E scattering off a delta potential V(x)=V0 delta(x)?","gold":"T = 1 / (1 + m V0^2 / (2 hbar^2 E))"},
+ {"id":"P39","q":"State the Wigner-Eckart theorem for matrix elements of a spherical tensor operator T^k_q.","gold":"<a,j,m|T^k_q|a',j',m'> = <j',k;m',q|j',k;j,m> * <a,j||T^k||a',j'> / sqrt(2j+1)"},
+ {"id":"P40","q":"What is the value of the spin exchange operator P12 = (1/2)(1 + (4/hbar^2) S1.S2) acting on a two-electron spin singlet?","gold":"-1"},
+ {"id":"P41","q":"Under a spatial displacement by vector a, how does a state |psi> transform under the translation operator?","gold":"|psi'> = exp(-i p.a / hbar) |psi>"},
+ {"id":"P42","q":"What is the second-order energy correction E_n^(2) in non-degenerate time-independent perturbation theory?","gold":"E_n^(2) = sum_{m != n} |<m|H'|n>|^2 / (E_n^(0) - E_m^(0))"},
+ {"id":"P43","q":"What is the commutator [L_z, r^2] where r^2 = x^2+y^2+z^2?","gold":"0"},
+ {"id":"P44","q":"State the energy splitting between singlet and triplet of a two-electron system under V = -J S1.S2.","gold":"Delta E = E_singlet - E_triplet = J hbar^2"},
+ {"id":"P45","q":"State the Optical Theorem relating scattering amplitude f(theta) to total cross-section sigma.","gold":"sigma = (4 pi / k) Im[f(0)]"},
+ {"id":"P46","q":"What is <1/r> for an electron in a hydrogenic state with principal quantum number n?","gold":"<1/r> = Z / (a0 n^2)"},
+ {"id":"P47","q":"Express the coherent state |alpha> of a harmonic oscillator as a unitary acting on the vacuum |0>.","gold":"|alpha> = exp(alpha A^dagger - alpha* A) |0>"}
+]
