@@ -5,6 +5,21 @@
 Status: 🟢 Phase 1 in progress. The headless engine + trust-measurement runs today (no GPU
 needed, via a mock backend); the real MLX backend slots in on Apple Silicon.
 
+## Desktop app
+
+A sleek black-and-white desktop app (Linux & macOS) over the whole engine —
+any model local or cloud, document ingestion with math-aware (vision) extraction,
+the full hybrid + HyDE + rerank pipeline, and grounded answers that **cite their
+source or abstain — never guess**. Light/dark mode; settings persist.
+
+```bash
+pip install -e '.[ingest,embed-local,vision,ui]'
+attest ui                 # native window
+attest ui --no-window     # or serve to your browser
+```
+
+See [docs/desktop-app.md](docs/desktop-app.md) for the tour and PyInstaller packaging.
+
 ## Quickstart (developers)
 
 ```bash
