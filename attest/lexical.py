@@ -22,7 +22,6 @@ import math
 import re
 from collections import Counter
 
-from .chunking import Chunk
 from .retrieval import Retrieved
 
 # Keep dotted labels ("2.1", "2.87", "9.2") as single tokens — they're how this
@@ -71,12 +70,10 @@ class BM25Retriever:
                     s += self._idf.get(t, 0.0) * (f * (self._k1 + 1)) / (f + denom_norm)
             scores[i] = s
         order = sorted(range(len(self._chunks)), key=lambda i: scores[i], reverse=True)[:k]
+        # Return the chunk objects as given — rebuilding them here would silently
+        # drop metadata like the page number that citations depend on.
         return [
-            Retrieved(
-                chunk=Chunk(index=self._chunks[i].index, text=self._chunks[i].text,
-                            source=getattr(self._chunks[i], "source", "")),
-                score=scores[i],
-            )
+            Retrieved(chunk=self._chunks[i], score=scores[i])
             for i in order
             if scores[i] > 0  # don't return chunks with no query-term overlap
         ]

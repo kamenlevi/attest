@@ -21,6 +21,9 @@
       <nav class="nav">
         <button class="nav-item active" data-view="chat"><span class="ic">▣</span> Ask</button>
         <button class="nav-item" data-view="library"><span class="ic">❏</span> Library</button>
+        <button class="nav-item" data-view="convert"><span class="ic">⇄</span> Convert</button>
+        <button class="nav-item" data-view="measure"><span class="ic">%</span> Measure</button>
+        <button class="nav-item" data-view="compare"><span class="ic">⇋</span> Compare</button>
         <button class="nav-item" data-view="settings"><span class="ic">⚙</span> Settings</button>
       </nav>
 
@@ -38,7 +41,7 @@
       <section class="view active" id="view-chat">
         <header class="view-head">
           <h1>Ask your documents</h1>
-          <p class="sub">Grounded answers with citations. If it isn't in your sources, it says so — it never guesses.</p>
+          <p class="sub">Every answer is checked: citations must point at real passages, and an independent judge confirms they actually support the answer. If it isn't in your sources, it says so — it never guesses.</p>
         </header>
         <div class="chat" id="chat"></div>
         <form class="composer" id="ask-form">
@@ -52,7 +55,7 @@
       <section class="view" id="view-library">
         <header class="view-head">
           <h1>Library</h1>
-          <p class="sub">Add a PDF or text file. It's embedded once — re-adding the same file is instant.</p>
+          <p class="sub">Add a PDF or text file. It's embedded once — re-adding the same file is instant. Citations carry page numbers, so you can open the book and check.</p>
         </header>
 
         <div class="card add-card">
@@ -62,7 +65,7 @@
           </label>
           <label class="check">
             <input id="doc-vision" type="checkbox" />
-            <span>Math-aware extraction <em>(render pages → clean LaTeX with a vision model; best for equation-dense PDFs)</em></span>
+            <span>Math-aware extraction <em>(render pages → clean LaTeX with a vision model; best for equation-dense PDFs; one model call per page)</em></span>
           </label>
           <button id="index-btn" class="primary">Add to library</button>
           <div class="hint" id="index-hint"></div>
@@ -74,18 +77,109 @@
         </div>
       </section>
 
+      <!-- CONVERT -->
+      <section class="view" id="view-convert">
+        <header class="view-head">
+          <h1>Convert</h1>
+          <p class="sub">Turn a PDF into clean text a model can read without stumbling. Standard mode fixes extraction noise (ligatures, broken ℏ, hyphenation). Vision mode re-reads each page as an image and transcribes equations to real LaTeX.</p>
+        </header>
+
+        <div class="card">
+          <label class="field"><span>Document path</span>
+            <input id="cv-path" type="text" placeholder="/path/to/book.pdf" /></label>
+          <label class="check">
+            <input id="cv-vision" type="checkbox" />
+            <span>Vision transcription <em>(page images → Markdown + LaTeX; exact math, one model call per page)</em></span>
+          </label>
+          <label class="field inline" id="cv-pages-row" style="display:none"><span>Pages</span>
+            <input id="cv-pages" type="text" placeholder="e.g. 40-46 (blank = all)" style="width:200px" /></label>
+          <label class="field"><span>Output path <em>(optional — defaults to alongside the original)</em></span>
+            <input id="cv-out" type="text" placeholder="/path/to/book.md" /></label>
+          <button id="cv-btn" class="primary">Convert</button>
+          <div class="hint" id="cv-hint"></div>
+        </div>
+
+        <div class="card" id="cv-result" style="display:none">
+          <div class="card-title">Preview</div>
+          <pre class="preview" id="cv-preview"></pre>
+        </div>
+      </section>
+
+      <!-- MEASURE -->
+      <section class="view" id="view-measure">
+        <header class="view-head">
+          <h1>Measure</h1>
+          <p class="sub">Run a question set against your library and get the trust report — the numbers that make "you can trust it" a measurement, not a claim.</p>
+        </header>
+
+        <div class="card">
+          <label class="field"><span>Questions file <em>(JSON: [{"question": "…", "answerable": true}, …] — traps use answerable: false)</em></span>
+            <input id="ev-questions" type="text" placeholder="/path/to/questions.json" /></label>
+          <label class="check">
+            <input id="ev-judge" type="checkbox" checked />
+            <span>Grade correctness with the judge model <em>(extra model call per answered question)</em></span>
+          </label>
+          <button id="ev-btn" class="primary">Run trust report</button>
+          <div class="hint" id="ev-hint"></div>
+        </div>
+
+        <div id="ev-result" style="display:none">
+          <div class="tiles" id="ev-tiles"></div>
+          <div class="card">
+            <div class="card-title">Per question</div>
+            <div class="table-wrap"><table class="qtable" id="ev-table"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COMPARE -->
+      <section class="view" id="view-compare">
+        <header class="view-head">
+          <h1>Compare</h1>
+          <p class="sub">Same documents, same questions, same pipeline — two models, two trust reports side by side. Quantized and fine-tuned variants will plug into this same view (roadmap P2/P3): they're just another model name.</p>
+        </header>
+
+        <div class="card">
+          <div class="two-col">
+            <label class="field"><span>Model A</span>
+              <input id="cmp-a" type="text" placeholder="meta-llama/llama-3.1-8b-instruct" /></label>
+            <label class="field"><span>Model B</span>
+              <input id="cmp-b" type="text" placeholder="openai/gpt-4o-mini" /></label>
+          </div>
+          <label class="field"><span>Questions file</span>
+            <input id="cmp-questions" type="text" placeholder="/path/to/questions.json" /></label>
+          <label class="check">
+            <input id="cmp-judge" type="checkbox" checked />
+            <span>Grade correctness with the judge model</span>
+          </label>
+          <button id="cmp-btn" class="primary">Compare</button>
+          <div class="hint" id="cmp-hint"></div>
+        </div>
+
+        <div class="card" id="cmp-result" style="display:none">
+          <div class="card-title">Trust reports</div>
+          <div class="table-wrap"><table class="qtable" id="cmp-table"></table></div>
+        </div>
+      </section>
+
       <!-- SETTINGS -->
       <section class="view" id="view-settings">
         <header class="view-head">
           <h1>Settings</h1>
-          <p class="sub">Any model, local or cloud. Configure once — it's remembered.</p>
+          <p class="sub">Any OpenAI-compatible endpoint — cloud (OpenRouter, OpenAI) or local (Ollama, LM Studio) — behind the same switch. Configure once; it's remembered.</p>
         </header>
 
         <div class="card">
           <div class="card-title">Provider</div>
+          <div class="presets">
+            <button class="chip" data-base="https://openrouter.ai/api/v1">OpenRouter</button>
+            <button class="chip" data-base="https://api.openai.com/v1">OpenAI</button>
+            <button class="chip" data-base="http://localhost:11434/v1">Ollama (local)</button>
+            <button class="chip" data-base="http://localhost:1234/v1">LM Studio (local)</button>
+          </div>
           <label class="field"><span>Base URL</span>
             <input id="set-base" type="text" placeholder="https://openrouter.ai/api/v1" /></label>
-          <label class="field"><span>API key</span>
+          <label class="field"><span>API key <em>(local endpoints usually need none)</em></span>
             <input id="set-key" type="password" placeholder="paste to set / leave to keep" /></label>
         </div>
 
@@ -93,7 +187,7 @@
           <div class="card-title">Models</div>
           <label class="field"><span>Generator <em>(answers)</em></span>
             <input id="set-gen" type="text" placeholder="meta-llama/llama-3.1-8b-instruct" /></label>
-          <label class="field"><span>Judge <em>(grading)</em></span>
+          <label class="field"><span>Judge <em>(verifies citations &amp; grades evals — pick a strong model)</em></span>
             <input id="set-judge" type="text" placeholder="openai/gpt-4o-mini" /></label>
           <label class="field"><span>Vision <em>(math extraction)</em></span>
             <input id="set-vision" type="text" placeholder="openai/gpt-4o-mini" /></label>
@@ -103,13 +197,15 @@
         </div>
 
         <div class="card">
-          <div class="card-title">Retrieval pipeline</div>
+          <div class="card-title">Pipeline</div>
           <label class="toggle"><input id="p-lexical" type="checkbox" />
-            <span>Keyword fusion (BM25) <em>— finds exact terms & names</em></span></label>
+            <span>Keyword fusion (BM25) <em>— finds exact terms &amp; names</em></span></label>
           <label class="toggle"><input id="p-expand" type="checkbox" />
             <span>Query expansion (HyDE) <em>— closes wording gaps</em></span></label>
           <label class="toggle"><input id="p-rerank" type="checkbox" />
             <span>Reranker <em>— precision; slow on CPU, fast on GPU</em></span></label>
+          <label class="toggle"><input id="p-verify" type="checkbox" />
+            <span>Verify answers <em>— the judge confirms cited passages support each answer (one extra call per answer). Only verified answers get the green badge.</em></span></label>
           <label class="toggle"><input id="p-uncited" type="checkbox" />
             <span>Allow uncited answers <em>— if absent, also show the model's own (unverifiable) answer</em></span></label>
           <label class="field inline"><span>Passages (k)</span>

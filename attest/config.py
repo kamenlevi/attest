@@ -32,6 +32,7 @@ def defaults() -> dict:
             "lexical": True,   # BM25 keyword fusion (recall)
             "expand": True,    # HyDE query expansion (recall)
             "rerank": False,   # cross-encoder precision (slow on CPU; great on GPU)
+            "verify": True,    # judge-check that cited passages support the answer
             "k": 8,
             "allow_uncited": False,  # if abstained, also show the model's own answer (labelled)
         },

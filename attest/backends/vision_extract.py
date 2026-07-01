@@ -1,4 +1,4 @@
-"""Math-aware extraction: read the page as an IMAGE, not a glyph stream.
+r"""Math-aware extraction: read the page as an IMAGE, not a glyph stream.
 
 Glyph-based PDF extraction (pypdf) destroys equation structure — fractions, roots
 and superscripts collapse into nonsense like `A ≡ mωx + ip√ 2mℏω` (Exp 8/11). The
@@ -96,6 +96,15 @@ class VisionExtractor:
     def extract(self, pdf_path: str, pages: list[int] | None = None,
                 progress: bool = True) -> str:
         """Transcribe `pages` (0-based; default all) of a PDF to one clean string."""
+        return "\n\n".join(t for _p, t in self.extract_pages(pdf_path, pages, progress))
+
+    def extract_pages(self, pdf_path: str, pages: list[int] | None = None,
+                      progress: bool = True) -> list[tuple[int, str]]:
+        """Transcribe pages, keeping page numbers: [(1-based page, markdown), ...].
+
+        Keeping the page number lets an index built from a vision transcription
+        still cite "p. 112" — the human-checkable citation.
+        """
         try:
             import fitz  # pymupdf
         except ImportError as exc:  # pragma: no cover - optional extra
@@ -104,11 +113,11 @@ class VisionExtractor:
             ) from exc
         doc = fitz.open(pdf_path)
         idxs = list(range(doc.page_count)) if pages is None else pages
-        out: list[str] = []
+        out: list[tuple[int, str]] = []
         for n, i in enumerate(idxs, 1):
             png = doc[i].get_pixmap(dpi=self.dpi).tobytes("png")
-            out.append(self._transcribe_png(png))
+            out.append((i + 1, self._transcribe_png(png)))
             if progress:
                 print(f"    transcribed page {n}/{len(idxs)} (pdf page {i + 1})",
                       file=sys.stderr)
-        return "\n\n".join(out)
+        return out

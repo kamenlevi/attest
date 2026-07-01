@@ -1,4 +1,4 @@
-from attest.chunking import chunk_text
+from attest.chunking import chunk_pages, chunk_text
 
 
 def test_chunks_cover_text_with_overlap():
@@ -22,3 +22,18 @@ def test_invalid_overlap_rejected():
 
     with pytest.raises(ValueError):
         chunk_text("a b c", chunk_size=5, overlap=5)
+
+
+def test_chunk_pages_records_starting_page():
+    pages = [(1, " ".join(f"p1w{i}" for i in range(10))),
+             (2, " ".join(f"p2w{i}" for i in range(10)))]
+    chunks = chunk_pages(pages, chunk_size=8, overlap=0)
+    # 20 words in windows of 8: starts at word 0 (page 1), 8 (page 1), 16 (page 2)
+    assert [c.page for c in chunks] == [1, 1, 2]
+    # The word stream flows across the page boundary — nothing lost at the break.
+    assert "p1w8" in chunks[1].text and "p2w0" in chunks[1].text
+
+
+def test_chunk_pages_none_page_for_plain_text():
+    chunks = chunk_pages([(None, "just some plain text with no pages")])
+    assert chunks[0].page is None

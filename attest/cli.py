@@ -36,10 +36,10 @@ from pathlib import Path
 
 from .backends.mock import MockEmbedder, MockGenerator
 from .backends.openai_compat import OpenAICompatibleGenerator
-from .chunking import chunk_text
+from .chunking import chunk_pages
 from .eval import EvalItem, compute_metrics, format_report, grade_results, run_eval
 from .grounding import build_prompt, parse_response
-from .ingest import load_text
+from .ingest import load_pages, load_text
 from .interfaces import Embedder, Generator
 from .judge import Judge
 from .query import ExpandingRetriever, QueryExpander
@@ -47,12 +47,18 @@ from .retrieval import HybridRetriever, RerankingRetriever, Retriever
 from .store import IndexedStore, file_fingerprint
 
 
-def _load_dotenv(path: str = ".env") -> None:
-    """Load KEY=VALUE lines from a local .env into the environment (no deps).
+def _load_dotenv(path: str | None = None) -> None:
+    """Load KEY=VALUE lines from .env files into the environment (no deps).
 
-    Existing environment variables win, so an explicit `export` always overrides
-    the file. Silently does nothing if there's no .env.
+    With no argument it reads `./.env` and then `~/.attest/.env` — so the desktop
+    app finds your key no matter which directory it was launched from. Existing
+    environment variables win, so an explicit `export` always overrides the file.
     """
+    if path is None:
+        from .config import CONFIG_DIR
+        for p in (Path(".env"), CONFIG_DIR / ".env"):
+            _load_dotenv(str(p))
+        return
     p = Path(path)
     if not p.exists():
         return
@@ -111,8 +117,7 @@ def _make_retriever(embedder_name: str):
 
 
 def _build_retriever(doc_path: str, embedder_name: str):
-    text = load_text(doc_path)
-    chunks = chunk_text(text)
+    chunks = chunk_pages(load_pages(doc_path))
     retriever = _make_retriever(embedder_name)
     retriever.build(chunks)
     print(f"Loaded {doc_path}: {len(chunks)} chunks.", file=sys.stderr)
@@ -227,7 +232,7 @@ def _cmd_index(args: argparse.Namespace) -> None:
             print(f"  {path}: unchanged — skipped", file=sys.stderr)
             skipped += 1
             continue
-        chunks = chunk_text(load_text(path))
+        chunks = chunk_pages(load_pages(path))
         docs.append((path, chunks))
         fingerprints[path] = fp
         print(f"  {path}: {len(chunks)} chunks", file=sys.stderr)
@@ -263,23 +268,37 @@ def _wrap_retriever(retriever, generator, args: argparse.Namespace):
 
 
 def _cmd_ask(args: argparse.Namespace) -> None:
+    from .verify import SupportChecker, verify_answer
+
     generator = _make_generator(args)
     retriever = _wrap_retriever(_get_retriever(args), generator, args)
     retrieved = retriever.search(args.question, k=args.k)
     response = generator.generate(build_prompt(args.question, retrieved))
     answer = parse_response(response)
-    print(response)
-    if answer.abstained:
-        print("\n[abstained — not in sources]")
-        if args.allow_uncited:
-            # User opted in to seeing the model's own (un-sourced) knowledge.
-            uncited = generator.generate(args.question)
-            print("\n[UNCITED — from the model's own knowledge, NOT your sources]")
-            print(uncited)
-    elif answer.citations:
-        print(f"\n[cited passages: {answer.citations}]")
-    else:
-        print("\n[warning: answered with no citation]")
+    print(answer.text)
+
+    # Verification ladder: citation validity is free; --judge-model adds the
+    # support check (does the cited passage actually back the answer?).
+    checker = None
+    if getattr(args, "judge_model", None) and not answer.abstained and answer.citations:
+        checker = SupportChecker(_make_judge_generator(args, generator))
+    verification = verify_answer(args.question, answer, retrieved, checker)
+    by_id = {r.chunk.index: r.chunk for r in retrieved}
+    cites = ", ".join(
+        f"[{c}] {Path(by_id[c].source).name}" + (f" p. {by_id[c].page}" if by_id[c].page else "")
+        for c in verification.valid_citations if c in by_id
+    )
+    print(f"\n[{verification.status.upper()}] {verification.note}")
+    if cites:
+        print(f"[citations: {cites}]")
+    if verification.invalid_citations:
+        print(f"[invalid citations: {verification.invalid_citations}]")
+
+    if answer.abstained and args.allow_uncited:
+        # User opted in to seeing the model's own (un-sourced) knowledge.
+        uncited = generator.generate(args.question)
+        print("\n[UNCITED — from the model's own knowledge, NOT your sources]")
+        print(uncited)
 
 
 def _cmd_eval(args: argparse.Namespace) -> None:
@@ -350,6 +369,9 @@ def main(argv: list[str] | None = None) -> None:
     ask.add_argument("--question", required=True)
     ask.add_argument("--allow-uncited", action="store_true",
                      help="if abstained, also show the model's own un-sourced answer")
+    ask.add_argument("--judge-model", default=None,
+                     help="verify the answer with a judge model: does the cited "
+                          "passage actually support it? e.g. openai/gpt-4o-mini")
     _add_provider_args(ask)
     ask.set_defaults(func=_cmd_ask)
 

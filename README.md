@@ -8,9 +8,22 @@ needed, via a mock backend); the real MLX backend slots in on Apple Silicon.
 ## Desktop app
 
 A sleek black-and-white desktop app (Linux & macOS) over the whole engine —
-any model local or cloud, document ingestion with math-aware (vision) extraction,
-the full hybrid + HyDE + rerank pipeline, and grounded answers that **cite their
-source or abstain — never guess**. Light/dark mode; settings persist.
+any model, cloud (OpenRouter, OpenAI) or local (Ollama, LM Studio), behind one
+switch. Light/dark mode; settings persist.
+
+- **Ask** — grounded answers that cite their source or abstain, never guess. Every
+  answer runs the **verification ladder**: citations must point at passages the model
+  was actually shown, and an independent judge model confirms the cited passages
+  really support the answer. Only then does it get the green **Verified** badge.
+  Citations carry **page numbers** ("qb.pdf · p. 112") so *you* can check too.
+- **Library** — index PDFs/text once (incremental; re-adding is instant), with
+  optional math-aware vision extraction.
+- **Convert** — turn a garbled PDF into clean text, or vision-transcribe equations
+  to real LaTeX.
+- **Measure** — run a question set and get the trust report: bluff rate, coverage,
+  citation rate, judge-graded correctness.
+- **Compare** — same documents, same questions, two models, two trust reports side
+  by side. (Quantized and fine-tuned variants plug into this same view when P2/P3 land.)
 
 ```bash
 pip install -e '.[ingest,embed-local,vision,ui]'
@@ -70,7 +83,7 @@ Every useful thing you do to a local model should come with **a number that tell
 
 | Operation | The trust signal Attest gives you |
 |---|---|
-| **Grounded Q&A over your documents** (Phase 1) | every answer cites its source passage; the model says *"not in my sources"* instead of bluffing; a measured **bluff rate** |
+| **Grounded Q&A over your documents** (Phase 1) | every answer cites its source passage **and is verified**: the citation must be real, and a judge model confirms the passage actually supports the answer; the model says *"not in my sources"* instead of bluffing; a measured **bluff rate** |
 | **Quantization** (later) | an automatic before/after eval showing exactly how much quality changed |
 | **Fine-tuning** (later) | an auto-generated quiz from your source, scored before vs. after, proving it learned |
 | **Format conversion** (later) | verification that the converted model gives identical output to the original |

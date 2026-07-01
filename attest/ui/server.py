@@ -28,6 +28,26 @@ class IndexReq(BaseModel):
     vision: bool = False
 
 
+class ConvertReq(BaseModel):
+    path: str
+    vision: bool = False
+    pages: str | None = None   # "40-46" / "41,45" (1-based), vision only
+    out: str | None = None
+
+
+class EvalReq(BaseModel):
+    questions_path: str
+    judge: bool = True
+    model: str | None = None   # override the generator for this run only
+
+
+class CompareReq(BaseModel):
+    questions_path: str
+    model_a: str
+    model_b: str
+    judge: bool = True
+
+
 class Settings(BaseModel):
     patch: dict
 
@@ -50,6 +70,27 @@ def create_app() -> FastAPI:
     async def index(req: IndexReq):
         from starlette.concurrency import run_in_threadpool
         return await run_in_threadpool(state.index_file, req.path, req.vision)
+
+    @app.post("/api/convert")
+    async def convert(req: ConvertReq):
+        from starlette.concurrency import run_in_threadpool
+
+        from ..cli import _parse_pages
+        pages = _parse_pages(req.pages)
+        return await run_in_threadpool(
+            state.convert_file, req.path, req.vision, pages, req.out)
+
+    @app.post("/api/eval")
+    async def eval_run(req: EvalReq):
+        from starlette.concurrency import run_in_threadpool
+        return await run_in_threadpool(
+            state.run_eval, req.questions_path, req.judge, req.model)
+
+    @app.post("/api/compare")
+    async def compare(req: CompareReq):
+        from starlette.concurrency import run_in_threadpool
+        return await run_in_threadpool(
+            state.compare, req.questions_path, req.model_a, req.model_b, req.judge)
 
     @app.post("/api/settings")
     async def settings(req: Settings):

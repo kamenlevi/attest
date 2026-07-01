@@ -2,9 +2,9 @@
 
 A local web app wired straight to the engine, shown in a native window. Sleek
 black-and-white, light/dark mode, and every feature from the engine: any model
-(local or cloud), document ingestion (incl. math-aware vision extraction),
+(cloud or local), document ingestion (incl. math-aware vision extraction),
 incremental indexing, the full retrieval pipeline (hybrid + HyDE + rerank), and
-grounded answers that cite their source or abstain — never guess.
+**verified** grounded answers that cite their source or abstain — never guess.
 
 ## Run it (from source)
 
@@ -19,16 +19,34 @@ already works, the app does too. Settings persist in `~/.attest/config.json`.
 
 ## What's in the window
 
-- **Ask** — type a question; get a grounded answer with a trust badge:
-  - 🟢 **Grounded · cited [n]** — answered from your sources, with the passage ids
-  - 🟡 **Not in your sources** — the honest abstention (it won't guess)
-  - 🔴 **Unverifiable** — only if you enable "allow uncited"; the model's own answer, clearly flagged
-  Expand *retrieved passages* to see exactly what it read.
+- **Ask** — type a question; get a grounded answer whose badge reflects the
+  **verification ladder**, not the model's own claim:
+  - 🟢 **Verified** — the citations point at passages the model was really shown,
+    AND an independent judge model confirmed those passages support every claim.
+  - 🔵 **Cited · not verified** — real citations, but no judge configured to confirm.
+  - 🔴 **Citation doesn't support this** — the judge checked and the cited passage
+    does NOT back the answer (the model likely answered from its own memory).
+  - 🔴 **Fabricated citation** — the model cited passage numbers it was never shown.
+  - 🔴 **No citation** — answered without citing; treat as unverifiable.
+  - 🟡 **Not in your sources** — the honest abstention (it won't guess).
+  Citations show file and **page number** ("qb.pdf · p. 112") so you can open the
+  book and check. Expand *retrieved passages* to see exactly what it read.
 - **Library** — add a PDF/text file (embedded once; re-adding is instant). Tick
   **Math-aware extraction** for equation-dense PDFs (renders pages → clean LaTeX
   via the vision model).
-- **Settings** — provider (base URL + key), models (generator / judge / vision /
-  embedder), the retrieval pipeline toggles, passages `k`, allow-uncited, theme.
+- **Convert** — extract a PDF to clean text (fixes ligatures, broken ℏ,
+  hyphenation), or vision-transcribe selected pages to Markdown + LaTeX.
+- **Measure** — point it at a questions file
+  (`[{"question": "…", "answerable": true}, …]`; traps use `false`) and get the
+  trust report: bluff rate, coverage, citation rate, judge-graded correctness,
+  plus a per-question breakdown.
+- **Compare** — two model names, one questions file: both models run the same
+  pipeline over the same documents and their trust reports land side by side.
+  Quantized / fine-tuned variants (roadmap P2/P3) will appear here as just
+  another model name.
+- **Settings** — provider presets (OpenRouter / OpenAI / Ollama / LM Studio),
+  base URL + key, models (generator / judge / vision / embedder), the retrieval
+  pipeline toggles, the **verify** toggle, passages `k`, allow-uncited, theme.
 
 ## Package a downloadable app (Linux & macOS)
 

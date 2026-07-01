@@ -108,3 +108,14 @@ def test_manifest_persists_so_reload_still_skips(tmp_path):
     assert set(reloaded.sources()) == {"bookA.txt", "bookB.txt"}
     stats = reloaded.add(_docs(), MockEmbedder())  # unchanged -> all skipped
     assert stats["skipped"] == 2 and stats["added"] == 0
+
+
+def test_page_numbers_round_trip_through_save_and_load(tmp_path):
+    docs = [("paged.pdf", [Chunk(0, "text on the fifth page", page=5),
+                           Chunk(1, "text with no page")])]
+    IndexedStore.build(docs, MockEmbedder()).save(tmp_path / "idx")
+    loaded = IndexedStore.load(tmp_path / "idx", MockEmbedder())
+    hit = loaded.search("fifth page text", k=1)[0]
+    assert hit.chunk.page == 5
+    pages = {c.index: c.page for c in loaded.chunks()}
+    assert pages == {0: 5, 1: None}

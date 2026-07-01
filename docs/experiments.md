@@ -542,3 +542,37 @@ none of which is "RAG is worse":
 - Add an in-corpus check to evals so a correct abstention isn't scored as a miss.
 - For advanced material, expose/recommend a stronger generator via the model picker.
 - Merge the proven branches to master.
+
+## Exp 14 — The verification ladder: badges mean "we checked", not "it said so" (2026-07)
+
+**Problem.** The green "grounded" badge was a regex: if the reply contained `[3]`, it was
+"cited". Nothing checked that [3] was a passage the model was actually shown, or that the
+passage *supports* the answer. A model can answer from its own memory and decorate it with a
+plausible citation — the exact failure a trust tool must catch.
+
+**Built.**
+1. **Structured protocol** (`grounding.py`): the model replies as JSON
+   `{"found", "answer", "citations"}` — exact parsing instead of a regex hunt; falls back to
+   the legacy text protocol when a model breaks the JSON. (The 8B follows it fine in practice.)
+2. **Verification ladder** (`verify.py`): abstained → uncited → *invalid* (cited passage
+   numbers never shown — fabricated) → *unverified* (real citations, no judge) →
+   *unsupported* (judge says the passage does NOT back the answer) → **verified** (judge
+   confirmed every claim is supported). Citation validity is free; the support check is one
+   judge call per answer.
+3. **Page-numbered citations** (`ingest.load_pages` → `chunk_pages` → store): a citation is
+   now "qb.pdf · p. 112" — a person can open the book and check. This is what makes the trust
+   story land for a human, not just a metric.
+
+**Measured (qb.pdf index, llama-3.1-8b generator, gpt-4o-mini judge).**
+- "Who is the book dedicated to?" → *Walter of Merton*, cited, judge-confirmed → **verified**.
+- "Physical interpretation of eq 2.87?" → correct, cited [116], judge-confirmed → **verified**.
+- "Capital of Australia?" (trap) → abstained. 0 bluffs.
+- Perf: pipeline now cached across questions (it was rebuilt per ask — including re-loading
+  the cross-encoder from disk every question). First ask 20 s (model+index load), subsequent
+  asks 3–5 s.
+
+**Also shipped** (same pass): app tabs for Convert (clean/vision extraction), Measure (trust
+report on a question set), Compare (two models, same docs+questions, side-by-side trust
+reports — quantized/fine-tuned variants slot in here later as "just another model name");
+provider presets (OpenRouter/OpenAI/Ollama/LM Studio); `.env` also read from `~/.attest/`;
+`attest ask --judge-model` runs the same ladder in the CLI. 79 tests pass.

@@ -84,6 +84,7 @@ class StoredChunk:
     source: str       # which file it came from
     local_index: int  # its position within that file
     text: str
+    page: int | None = None  # 1-based page it starts on (None for plain text)
 
 
 class IndexedStore:
@@ -145,7 +146,7 @@ class IndexedStore:
             else:
                 stats["added"] += 1
             for c in chunks:
-                new_chunks.append(StoredChunk(next_uid, source, c.index, c.text))
+                new_chunks.append(StoredChunk(next_uid, source, c.index, c.text, c.page))
                 new_texts.append(c.text)
                 next_uid += 1
             self._manifest[source] = digest
@@ -184,7 +185,8 @@ class IndexedStore:
         with open(p / "chunks.jsonl", encoding="utf-8") as fh:
             for line in fh:
                 d = json.loads(line)
-                stored.append(StoredChunk(d["uid"], d["source"], d["local_index"], d["text"]))
+                stored.append(StoredChunk(d["uid"], d["source"], d["local_index"],
+                                          d["text"], d.get("page")))
         manifest_path = p / "manifest.json"
         manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
         return cls(stored, matrix, embedder, manifest)
@@ -195,7 +197,8 @@ class IndexedStore:
 
     def chunks(self) -> list[Chunk]:
         """The stored chunks (uid as index) — e.g. to build a lexical index over them."""
-        return [Chunk(index=s.uid, text=s.text, source=s.source) for s in self._stored]
+        return [Chunk(index=s.uid, text=s.text, source=s.source, page=s.page)
+                for s in self._stored]
 
     def __len__(self) -> int:
         return len(self._stored)
@@ -209,7 +212,7 @@ class IndexedStore:
         return [
             Retrieved(
                 chunk=Chunk(index=self._stored[i].uid, text=self._stored[i].text,
-                            source=self._stored[i].source),
+                            source=self._stored[i].source, page=self._stored[i].page),
                 score=float(scores[i]),
             )
             for i in order
