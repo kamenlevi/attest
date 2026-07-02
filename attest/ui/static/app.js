@@ -1,8 +1,28 @@
 const $ = (s) => document.querySelector(s);
+// Per-run auth token (from the launcher's URL): proves requests come from THIS
+// page, not from some other website poking our localhost server.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
 const api = (path, body) =>
   fetch(path, { method: body ? "POST" : "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json",
+      ...(TOKEN ? { "X-Attest-Token": TOKEN } : {}) },
     body: body ? JSON.stringify(body) : undefined }).then((r) => r.json());
+
+/* Long work runs as a server-side job: POST returns {job}, then we poll for
+   progress ("embedded 512/970 chunks") until the result arrives. */
+async function runJob(path, body, onProgress) {
+  const start = await api(path, body);
+  if (start.error || !start.job) return start;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 700));
+    let j;
+    try { j = await api("/api/jobs/" + start.job); }
+    catch (e) { continue; }
+    if (j.error) return j;
+    if (j.status === "done") return j.result || {};
+    if (onProgress && j.message) onProgress(j);
+  }
+}
 
 let STATE = null;
 
@@ -152,10 +172,10 @@ $("#index-btn").addEventListener("click", async () => {
   const path = $("#doc-path").value.trim();
   if (!path) return;
   const vision = $("#doc-vision").checked;
-  $("#index-hint").textContent = vision
-    ? "Transcribing pages with the vision model… (one call per page)" : "Embedding…";
+  $("#index-hint").textContent = "Starting…";
   $("#index-btn").disabled = true;
-  const res = await api("/api/index", { path, vision });
+  const res = await runJob("/api/index", { path, vision },
+    (j) => { $("#index-hint").textContent = j.message; });
   $("#index-btn").disabled = false;
   if (res.error) { $("#index-hint").textContent = "⚠ " + res.error; return; }
   $("#index-hint").textContent = res.skipped
@@ -172,14 +192,13 @@ $("#cv-btn").addEventListener("click", async () => {
   const path = $("#cv-path").value.trim();
   if (!path) return;
   const vision = $("#cv-vision").checked;
-  $("#cv-hint").textContent = vision
-    ? "Transcribing pages with the vision model… (one call per page)" : "Extracting & cleaning…";
+  $("#cv-hint").textContent = "Starting…";
   $("#cv-btn").disabled = true;
-  const res = await api("/api/convert", {
+  const res = await runJob("/api/convert", {
     path, vision,
     pages: vision ? ($("#cv-pages").value.trim() || null) : null,
     out: $("#cv-out").value.trim() || null,
-  });
+  }, (j) => { $("#cv-hint").textContent = j.message; });
   $("#cv-btn").disabled = false;
   if (res.error) { $("#cv-hint").textContent = "⚠ " + res.error; return; }
   $("#cv-hint").textContent = `Wrote ${res.chars.toLocaleString()} characters → ${res.out}`;
@@ -215,9 +234,10 @@ function metricClass(m, def) {
 $("#ev-btn").addEventListener("click", async () => {
   const questions_path = $("#ev-questions").value.trim();
   if (!questions_path) return;
-  $("#ev-hint").textContent = "Running every question through the pipeline… (this can take a few minutes)";
+  $("#ev-hint").textContent = "Starting…";
   $("#ev-btn").disabled = true;
-  const res = await api("/api/eval", { questions_path, judge: $("#ev-judge").checked });
+  const res = await runJob("/api/eval", { questions_path, judge: $("#ev-judge").checked },
+    (j) => { $("#ev-hint").textContent = j.message; });
   $("#ev-btn").disabled = false;
   if (res.error) { $("#ev-hint").textContent = "⚠ " + res.error; return; }
   const m = res.metrics;
@@ -253,10 +273,11 @@ $("#cmp-btn").addEventListener("click", async () => {
   if (!questions_path || !model_a || !model_b) {
     $("#cmp-hint").textContent = "⚠ Fill in both models and the questions file."; return;
   }
-  $("#cmp-hint").textContent = "Running the full question set through BOTH models… (this can take a while)";
+  $("#cmp-hint").textContent = "Starting…";
   $("#cmp-btn").disabled = true;
-  const res = await api("/api/compare",
-    { questions_path, model_a, model_b, judge: $("#cmp-judge").checked });
+  const res = await runJob("/api/compare",
+    { questions_path, model_a, model_b, judge: $("#cmp-judge").checked },
+    (j) => { $("#cmp-hint").textContent = j.message; });
   $("#cmp-btn").disabled = false;
   if (res.error) { $("#cmp-hint").textContent = "⚠ " + res.error; return; }
   $("#cmp-hint").textContent = "Done.";

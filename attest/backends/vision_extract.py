@@ -94,16 +94,17 @@ class VisionExtractor:
         raise last  # exhausted retries
 
     def extract(self, pdf_path: str, pages: list[int] | None = None,
-                progress: bool = True) -> str:
+                progress: bool = True, on_page=None) -> str:
         """Transcribe `pages` (0-based; default all) of a PDF to one clean string."""
-        return "\n\n".join(t for _p, t in self.extract_pages(pdf_path, pages, progress))
+        return "\n\n".join(t for _p, t in self.extract_pages(pdf_path, pages, progress, on_page))
 
     def extract_pages(self, pdf_path: str, pages: list[int] | None = None,
-                      progress: bool = True) -> list[tuple[int, str]]:
+                      progress: bool = True, on_page=None) -> list[tuple[int, str]]:
         """Transcribe pages, keeping page numbers: [(1-based page, markdown), ...].
 
         Keeping the page number lets an index built from a vision transcription
-        still cite "p. 112" — the human-checkable citation.
+        still cite "p. 112" — the human-checkable citation. `on_page(done, total)`
+        is an optional progress callback (e.g. the app's job system).
         """
         try:
             import fitz  # pymupdf
@@ -117,6 +118,8 @@ class VisionExtractor:
         for n, i in enumerate(idxs, 1):
             png = doc[i].get_pixmap(dpi=self.dpi).tobytes("png")
             out.append((i + 1, self._transcribe_png(png)))
+            if on_page:
+                on_page(n, len(idxs))
             if progress:
                 print(f"    transcribed page {n}/{len(idxs)} (pdf page {i + 1})",
                       file=sys.stderr)

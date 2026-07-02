@@ -149,7 +149,20 @@ def test_run_eval_bad_questions_file_is_friendly(isolated_config, tmp_path):
     assert "error" in st.run_eval(str(tmp_path / "missing.json"))
 
 
-def test_api_convert_endpoint(isolated_config, tmp_path):
+def _finish_job(client, start, timeout=10.0):
+    """Poll /api/jobs/{id} until the job completes; return its result."""
+    import time
+    assert "job" in start, start
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        j = client.get(f"/api/jobs/{start['job']}").json()
+        if j["status"] == "done":
+            return j["result"]
+        time.sleep(0.05)
+    raise AssertionError("job did not finish in time")
+
+
+def test_api_convert_runs_as_job(isolated_config, tmp_path):
     from fastapi.testclient import TestClient
 
     from attest.ui.server import create_app
@@ -157,5 +170,41 @@ def test_api_convert_endpoint(isolated_config, tmp_path):
     doc = tmp_path / "note.txt"
     doc.write_text("endpoint text")
     client = TestClient(create_app())
-    res = client.post("/api/convert", json={"path": str(doc)}).json()
+    start = client.post("/api/convert", json={"path": str(doc)}).json()
+    res = _finish_job(client, start)
     assert res["ok"] and res["chars"] > 0
+
+
+def test_api_job_error_is_captured_not_raised(isolated_config):
+    from fastapi.testclient import TestClient
+
+    from attest.ui.server import create_app
+
+    client = TestClient(create_app())
+    start = client.post("/api/index", json={"path": "/no/such/file.pdf"}).json()
+    res = _finish_job(client, start)
+    assert "error" in res
+
+
+def test_api_unknown_job_is_friendly(isolated_config):
+    from fastapi.testclient import TestClient
+
+    from attest.ui.server import create_app
+
+    client = TestClient(create_app())
+    assert "error" in client.get("/api/jobs/nope-1").json()
+
+
+def test_api_token_required_when_configured(isolated_config, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from attest.ui.server import create_app
+
+    client = TestClient(create_app(token="s3cret"))
+    # without the token: rejected
+    assert client.get("/api/state").status_code == 401
+    # with it (header or query param): accepted
+    assert client.get("/api/state", headers={"X-Attest-Token": "s3cret"}).status_code == 200
+    assert client.get("/api/state?token=s3cret").status_code == 200
+    # the page itself loads without a token (it carries no secrets)
+    assert client.get("/").status_code == 200

@@ -65,15 +65,22 @@ def _hash_chunks(chunks: list[Chunk]) -> str:
     return h.hexdigest()
 
 
-def _embed_batched(embedder: Embedder, texts: list[str], batch: int = _BATCH) -> np.ndarray:
-    """Embed many texts in bounded batches; show progress for long jobs."""
+def _embed_batched(embedder: Embedder, texts: list[str], batch: int = _BATCH,
+                   progress=None) -> np.ndarray:
+    """Embed many texts in bounded batches; show progress for long jobs.
+
+    `progress(done, total)` is an optional callback (e.g. the app's job system);
+    the stderr print keeps the CLI informative either way.
+    """
     if not texts:
         return np.zeros((0, 1), dtype=np.float32)
     out: list[np.ndarray] = []
     for start in range(0, len(texts), batch):
         out.append(embedder.embed(texts[start : start + batch]).astype(np.float32))
+        done = min(start + batch, len(texts))
+        if progress:
+            progress(done, len(texts))
         if len(texts) > batch:
-            done = min(start + batch, len(texts))
             print(f"    embedded {done}/{len(texts)} chunks", file=sys.stderr)
     return np.vstack(out)
 
@@ -121,6 +128,7 @@ class IndexedStore:
         docs: list[tuple[str, list[Chunk]]],
         embedder: Embedder,
         fingerprints: dict[str, str] | None = None,
+        progress=None,
     ) -> dict[str, int]:
         """Add documents incrementally. Returns {"added", "skipped", "updated"}.
 
@@ -152,7 +160,7 @@ class IndexedStore:
             self._manifest[source] = digest
 
         if new_texts:
-            new_matrix = _embed_batched(embedder, new_texts)
+            new_matrix = _embed_batched(embedder, new_texts, progress=progress)
             if self._matrix.shape[0] == 0:
                 self._matrix = new_matrix
             else:

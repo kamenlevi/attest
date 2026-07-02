@@ -146,14 +146,20 @@ class AppState:
             result["uncited"] = generator.generate(question)
         return result
 
-    def index_file(self, path: str, vision: bool = False) -> dict:
-        """Index a document into the active index (creating one if needed)."""
+    def index_file(self, path: str, vision: bool = False, progress=None) -> dict:
+        """Index a document into the active index (creating one if needed).
+
+        `progress` is the job system's report(message, current, total) callback;
+        omitted for direct/synchronous calls.
+        """
+        report = progress or (lambda *a, **kw: None)
         src = Path(path).expanduser()
         if not src.exists():
             return {"error": f"File not found: {path}"}
         path = str(src.resolve())  # absolute, so it resolves from any working dir
         default_index = Path.home() / ".attest" / "library.idx"
         index_path = self.config.get("index_path") or str(default_index)
+        report("loading the embedding model…")
         embedder = self.embedder()
         if (Path(index_path) / "vectors.npy").exists():
             store = IndexedStore.load(index_path, embedder)
@@ -163,10 +169,14 @@ class AppState:
         if store.fingerprint_of(path) == fp:
             return {"ok": True, "skipped": True, "chunks": len(store), "sources": store.sources()}
         if vision:
-            pages = self._vision_pages(path)
+            pages = self._vision_pages(
+                path, on_page=lambda n, t: report(f"transcribing page {n}/{t}…", n, t))
         else:
+            report("extracting text…")
             pages = load_pages(path)
-        store.add([(path, chunk_pages(pages))], embedder, fingerprints={path: fp})
+        report("embedding…")
+        store.add([(path, chunk_pages(pages))], embedder, fingerprints={path: fp},
+                  progress=lambda done, total: report(f"embedded {done}/{total} chunks", done, total))
         store.save(index_path)
         self.config["index_path"] = index_path
         save_config(self.config)
@@ -180,12 +190,14 @@ class AppState:
         model = self.config["models"].get("vision") or "openai/gpt-4o-mini"
         return VisionExtractor(model, prov["base_url"], prov.get("api_key") or None)
 
-    def _vision_pages(self, path: str) -> list[tuple[int, str]]:
-        return self._vision_extractor().extract_pages(path)
+    def _vision_pages(self, path: str, on_page=None) -> list[tuple[int, str]]:
+        return self._vision_extractor().extract_pages(path, on_page=on_page)
 
     def convert_file(self, path: str, vision: bool = False,
-                     pages: list[int] | None = None, out: str | None = None) -> dict:
+                     pages: list[int] | None = None, out: str | None = None,
+                     progress=None) -> dict:
         """Convert a document to clean text (or vision-transcribed Markdown+LaTeX)."""
+        report = progress or (lambda *a, **kw: None)
         src = Path(path).expanduser()
         if not src.exists():
             return {"error": f"File not found: {path}"}
@@ -194,10 +206,13 @@ class AppState:
                 if not self._has_provider():
                     return {"error": "Vision conversion needs a provider — set the "
                                      "Base URL in Settings."}
-                text = self._vision_extractor().extract(str(src.resolve()), pages=pages)
+                text = self._vision_extractor().extract(
+                    str(src.resolve()), pages=pages,
+                    on_page=lambda n, t: report(f"transcribing page {n}/{t}…", n, t))
                 suffix = ".md"
             else:
                 from ..ingest import load_text
+                report("extracting & cleaning…")
                 text = load_text(str(src.resolve()))
                 suffix = ".txt"
         except Exception as exc:  # noqa: BLE001 - surface as a friendly message
@@ -210,12 +225,15 @@ class AppState:
                 "preview": text[:1200]}
 
     def run_eval(self, questions_path: str, judge: bool = True,
-                 model: str | None = None) -> dict:
+                 model: str | None = None, progress=None, label: str = "") -> dict:
         """Run a question set through the pipeline and return the trust report.
 
         `model` overrides the generator for this run only — that's what lets the
         Compare tab race two models over the same documents and questions.
+        `label` prefixes progress messages (e.g. the model name during a compare).
         """
+        report = progress or (lambda *a, **kw: None)
+        tag = f"{label}: " if label else ""
         qp = Path(questions_path).expanduser()
         if not qp.exists():
             return {"error": f"Questions file not found: {questions_path}"}
@@ -231,9 +249,11 @@ class AppState:
             return {"error": "No document indexed yet. Add one in the Library tab."}
         generator = self._make_generator(model_override=model)
         results = run_eval(items, retriever, generator,
-                           k=int(self.config["pipeline"].get("k", 8)))
+                           k=int(self.config["pipeline"].get("k", 8)),
+                           progress=lambda i, n: report(f"{tag}answering {i}/{n}…", i, n))
         if judge and self._has_provider() and self.config["models"].get("judge"):
-            results = grade_results(results, Judge(self._make_generator("judge")))
+            results = grade_results(results, Judge(self._make_generator("judge")),
+                                    progress=lambda i, n: report(f"{tag}grading {i}/{n}…", i, n))
         rows = [
             {"question": r.item.question, "answerable": r.item.answerable,
              "abstained": r.answer.abstained, "citations": r.answer.citations,
@@ -245,7 +265,7 @@ class AppState:
                 "metrics": compute_metrics(results), "rows": rows}
 
     def compare(self, questions_path: str, model_a: str, model_b: str,
-                judge: bool = True) -> dict:
+                judge: bool = True, progress=None) -> dict:
         """Same documents, same questions, same pipeline — two generators.
 
         This is the honest version of 'which model should I trust on my library':
@@ -253,10 +273,12 @@ class AppState:
         trust report. (Quantized and fine-tuned variants plug into this same
         comparison once P2/P3 land — they're just another model name.)
         """
-        a = self.run_eval(questions_path, judge=judge, model=model_a)
+        a = self.run_eval(questions_path, judge=judge, model=model_a,
+                          progress=progress, label=model_a)
         if "error" in a:
             return a
-        b = self.run_eval(questions_path, judge=judge, model=model_b)
+        b = self.run_eval(questions_path, judge=judge, model=model_b,
+                          progress=progress, label=model_b)
         if "error" in b:
             return b
         return {"ok": True, "a": a, "b": b}

@@ -14,8 +14,15 @@ attest ui                 # opens a native window (pywebview)
 attest ui --no-window     # serve only; opens your browser instead
 ```
 
-First launch seeds its settings from your `.env` / `ATTEST_*` vars, so if the CLI
-already works, the app does too. Settings persist in `~/.attest/config.json`.
+First launch seeds its settings from your `.env` / `ATTEST_*` vars (read from the
+current directory and from `~/.attest/.env`), so if the CLI already works, the app
+does too. Settings persist in `~/.attest/config.json`.
+
+Long work (indexing, vision transcription, Measure/Compare runs) executes as
+background jobs with live progress — "embedded 512/970 chunks", "transcribing
+page 3/154" — instead of a silent spinner. And the local API requires a per-run
+secret token (only the app's own window has it), so a random webpage you visit
+can't send requests to the server Attest runs on your machine.
 
 ## What's in the window
 

@@ -7,6 +7,7 @@ app always runs. PyInstaller bundles this into a downloadable app per OS.
 
 from __future__ import annotations
 
+import secrets
 import socket
 import threading
 import time
@@ -36,11 +37,16 @@ def run(host: str = "127.0.0.1", port: int | None = None, open_window: bool = Tr
     from .server import create_app
 
     port = port or _free_port()
-    server = uvicorn.Server(uvicorn.Config(create_app(), host=host, port=port, log_level="warning"))
+    # A fresh secret per run: /api rejects requests without it, so a random
+    # webpage you visit can't poke this localhost server (browsers happily send
+    # cross-origin POSTs to 127.0.0.1). The page reads it from the URL.
+    token = secrets.token_urlsafe(16)
+    server = uvicorn.Server(uvicorn.Config(create_app(token=token), host=host, port=port,
+                                           log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     _wait_until_up(host, port)
-    url = f"http://{host}:{port}"
+    url = f"http://{host}:{port}/?token={token}"
 
     if open_window:
         try:

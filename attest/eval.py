@@ -41,11 +41,18 @@ class EvalResult:
 
 
 def run_eval(
-    items: list[EvalItem], retriever: Retriever, generator: Generator, k: int = 4
+    items: list[EvalItem], retriever: Retriever, generator: Generator, k: int = 4,
+    progress=None,
 ) -> list[EvalResult]:
-    """Run every question through retrieve -> ground -> generate -> parse."""
+    """Run every question through retrieve -> ground -> generate -> parse.
+
+    `progress(done, total)` is an optional callback for long runs (the app's
+    job system uses it to show "question 12/30").
+    """
     results: list[EvalResult] = []
-    for item in items:
+    for i, item in enumerate(items, 1):
+        if progress:
+            progress(i, len(items))
         retrieved = retriever.search(item.question, k=k)
         prompt = build_prompt(item.question, retrieved)
         response = generator.generate(prompt)
@@ -56,7 +63,7 @@ def run_eval(
     return results
 
 
-def grade_results(results: list[EvalResult], judge: Judge) -> list[EvalResult]:
+def grade_results(results: list[EvalResult], judge: Judge, progress=None) -> list[EvalResult]:
     """Add a correctness verdict to each *answered answerable* result.
 
     We only grade answerable questions that were actually answered: correctness
@@ -64,7 +71,9 @@ def grade_results(results: list[EvalResult], judge: Judge) -> list[EvalResult]:
     abstention has no answer to grade.
     """
     graded: list[EvalResult] = []
-    for r in results:
+    for i, r in enumerate(results, 1):
+        if progress:
+            progress(i, len(results))
         if r.item.answerable and not r.answer.abstained:
             verdict = judge.grade(r.item.question, r.answer.text, r.context)
             graded.append(EvalResult(r.item, r.answer, r.context, correct=verdict))
